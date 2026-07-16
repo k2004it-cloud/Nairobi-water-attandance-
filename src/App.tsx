@@ -136,11 +136,10 @@ export default function App() {
     typeof window !== 'undefined' && window.localStorage.getItem('nw-admin-auth') === 'true'
   );
   const [adminPassword, setAdminPassword] = useState('');
-  const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin2030';
-
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [adminLoading, setAdminLoading] = useState(false);
   // Admin auth & password management UI state
   const [showForgot, setShowForgot] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
   const [forgotToken, setForgotToken] = useState<string | null>(null);
   const [resetTokenInput, setResetTokenInput] = useState('');
   const [resetNewPassword, setResetNewPassword] = useState('');
@@ -188,19 +187,37 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('resetToken');
+      if (token) {
+        setResetTokenInput(token);
+        setShowForgot(true);
+        setResetMessage('A reset token has been loaded from the link. Enter a new password to complete the reset.');
+      }
+    }
+  }, []);
+
   const handleAdminLogin = () => {
+    setAdminError(null);
+    setAdminLoading(true);
     (async () => {
       try {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
         const res = await adminLogin(adminPassword);
         if (res && (res as any).success) {
           setIsAdminAuthenticated(true);
           window.localStorage.setItem('nw-admin-auth', 'true');
           setError(null);
+          setAdminError(null);
         } else {
-          setError('Admin password is incorrect.');
+          setAdminError('Admin password is incorrect.');
         }
       } catch (err) {
-        setError((err as Error).message || 'Admin password is incorrect.');
+        setAdminError((err as Error).message || 'Admin password is incorrect.');
+      } finally {
+        setAdminLoading(false);
       }
     })();
   };
@@ -218,13 +235,11 @@ export default function App() {
     setForgotToken(null);
 
     try {
-      const res = await adminForgotPassword(forgotEmail);
-      if (res && (res as any).token) {
-        setForgotToken((res as any).token);
-        setResetMessage('A reset token was generated (displayed for testing).');
-      } else {
-        setResetMessage('If the email is registered, a reset link will be sent.');
+      const res = await adminForgotPassword();
+      if (res && res.token) {
+        setForgotToken(res.token);
       }
+      setResetMessage(res.message || `A reset link has been sent to ${ADMIN_EMAIL}.`);
     } catch (err) {
       setResetMessage((err as Error).message || 'Unable to request password reset.');
     }
@@ -464,7 +479,15 @@ export default function App() {
         )}
 
         {isAdminPage && !isAdminAuthenticated && (
-          <div className="max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="relative max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            {adminLoading && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="login-loader-overlay-ring" />
+                  <div className="text-sm font-semibold text-slate-700">Unlocking admin area...</div>
+                </div>
+              </div>
+            )}
             <h2 className="text-2xl font-bold text-slate-900">Admin login</h2>
             <p className="mt-2 text-sm text-slate-600">
               Enter the admin password to access employee management and sensitive controls.
@@ -478,18 +501,30 @@ export default function App() {
                 className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 placeholder="Enter admin password"
               />
+              {adminError && (
+                <p className="text-sm text-red-600">{adminError}</p>
+              )}
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleAdminLogin}
-                  className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+                  disabled={adminLoading}
+                  className={`inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${adminLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
                 >
-                  Unlock admin area
+                  {adminLoading ? (
+                    <span className="inline-flex items-center gap-3">
+                      <span className="login-loader-ring" />
+                      <span>Unlocking admin area...</span>
+                    </span>
+                  ) : (
+                    'Unlock admin area'
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowForgot((s) => !s); setResetMessage(null); setForgotToken(null); }}
-                  className="text-sm text-[#003f87] underline hover:opacity-90"
+                  disabled={adminLoading}
+                  className={`text-sm underline ${adminLoading ? 'text-slate-400 cursor-not-allowed' : 'text-[#003f87] hover:opacity-90'}`}
                 >
                   Forgot password?
                 </button>
@@ -497,21 +532,15 @@ export default function App() {
 
               {showForgot && (
                 <div className="mt-4 space-y-3 rounded-lg border border-dashed p-4 bg-gray-50">
-                  <p className="text-sm text-[#424752]">Enter the admin email to request a password reset. A reset token will be displayed for testing.</p>
-                  <input
-                    type="email"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    placeholder="Admin email"
-                  />
+                  <p className="text-sm text-[#424752]">A reset link will be automatically sent to the admin email address configured for this app.</p>
+                  <p className="text-sm text-slate-700">Admin email: <span className="font-semibold">{ADMIN_EMAIL}</span></p>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={handleForgotRequest}
                       className="rounded-lg bg-[#0056b3] px-4 py-2 text-white text-sm"
                     >
-                      Request reset
+                      Send reset email
                     </button>
                     <button
                       type="button"

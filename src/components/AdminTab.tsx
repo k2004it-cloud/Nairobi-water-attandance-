@@ -40,6 +40,8 @@ export default function AdminTab({
   const [formEmail, setFormEmail] = useState('');
   const [formDept, setFormDept] = useState('Finance');
   const [formPosition, setFormPosition] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [formImagePreview, setFormImagePreview] = useState('');
   const [formStatus, setFormStatus] = useState<EmployeeStatus>('Active');
   const [formVerified, setFormVerified] = useState(true);
   const [formError, setFormError] = useState('');
@@ -84,6 +86,8 @@ export default function AdminTab({
     setFormEmail('');
     setFormDept('Finance');
     setFormPosition('');
+    setFormImageUrl('');
+    setFormImagePreview('');
     setFormStatus('Active');
     setFormVerified(true);
     setFormError('');
@@ -99,6 +103,8 @@ export default function AdminTab({
     setFormEmail(emp.email);
     setFormDept(emp.department);
     setFormPosition(emp.position);
+    setFormImageUrl(emp.imageUrl || '');
+    setFormImagePreview(emp.imageUrl || '');
     setFormStatus(emp.status);
     setFormVerified(emp.verified);
     setFormError('');
@@ -135,7 +141,7 @@ export default function AdminTab({
       department: formDept,
       position: trimmedPosition,
       status: formStatus,
-      imageUrl: existingEmployee?.imageUrl || '',
+      imageUrl: formImagePreview || existingEmployee?.imageUrl || '',
       verified: formVerified
     };
 
@@ -481,6 +487,57 @@ export default function AdminTab({
                   onChange={(e) => setFormEmail(e.target.value)}
                   className="w-full h-10 px-3 border border-[#c2c6d4] rounded-lg focus:ring-2 focus:ring-[#335f9d] outline-none text-sm text-[#181c1c]"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#424752] uppercase block mb-1">
+                  Passport photo
+                </label>
+                <div className="flex flex-col gap-2">
+                  <label className="cursor-pointer inline-flex items-center justify-center rounded-lg border border-dashed border-[#c2c6d4] bg-slate-50 px-4 py-3 text-sm font-medium text-[#424752] hover:border-[#335f9d] hover:text-[#003f87] transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) {
+                          setFormImageUrl('');
+                          setFormImagePreview('');
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const dataUrl = reader.result as string;
+                          setFormImageUrl(dataUrl);
+                          setFormImagePreview(dataUrl);
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    {formImagePreview ? 'Change photo' : 'Upload passport photo'}
+                  </label>
+
+                  {formImagePreview && (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={formImagePreview}
+                        alt="Passport preview"
+                        className="h-20 w-20 rounded-lg object-cover border border-[#c2c6d4]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormImageUrl('');
+                          setFormImagePreview('');
+                        }}
+                        className="rounded-lg border border-[#c2c6d4] px-3 py-2 text-sm text-[#424752] hover:bg-gray-100"
+                      >
+                        Remove photo
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

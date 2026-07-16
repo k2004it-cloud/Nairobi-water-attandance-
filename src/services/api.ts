@@ -138,11 +138,11 @@ export async function adminChangePassword(currentPassword: string, newPassword: 
   return parseResponse(response);
 }
 
-export async function adminForgotPassword(email: string): Promise<{ success: boolean; token?: string }> {
+export async function adminForgotPassword(): Promise<{ success: boolean; token?: string; message?: string; email?: string }> {
   const response = await fetch(`${API_BASE}/api/admin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'forgot', email })
+    body: JSON.stringify({ action: 'forgot' })
   });
 
   return parseResponse(response);

@@ -6,9 +6,9 @@ let logs: CheckInLog[] = [...INITIAL_LOGS];
 let stats: DashboardStats = computeStats();
 // Simple in-memory admin record for prototype purposes
 let admin = {
-  // default can be overridden by VERCEL env var or local env when deployed
-  password: process.env.ADMIN_PASSWORD || 'admin2030',
-  email: process.env.ADMIN_EMAIL || 'admin@nairobi.local'
+  // default can be overridden by VERCEL env vars or local env when deployed
+  password: process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || 'admin2030',
+  email: process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local'
 };
 
 // reset tokens stored as token -> { email, expires }

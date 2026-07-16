@@ -41,11 +41,20 @@ Recommended steps:
 
 ### Environment variables
 
-Set the following environment variable in Vercel Project Settings → Environment Variables:
+Set the following environment variables in Vercel Project Settings → Environment Variables:
 
 - `VITE_ADMIN_PASSWORD` — value: the admin password to unlock the admin area (e.g. `admin2030`).
+- `VITE_ADMIN_EMAIL` — the admin email address used for password reset requests.
+- `SMTP_HOST` — SMTP server hostname for sending reset emails.
+- `SMTP_PORT` — SMTP server port (e.g. `587`).
+- `SMTP_SECURE` — `true` for SMTPS, `false` for STARTTLS.
+- `SMTP_USER` — SMTP username.
+- `SMTP_PASS` — SMTP password.
+- `SMTP_FROM` — optional sender address for reset emails (defaults to `no-reply@nairobi-water.app`).
 
-You can add it via the Vercel CLI as well:
+If SMTP is not configured, the reset flow still works in development by returning the token directly for testing.
+
+You can add variables via the Vercel CLI as well:
 
 ```bash
 vercel env add VITE_ADMIN_PASSWORD production
