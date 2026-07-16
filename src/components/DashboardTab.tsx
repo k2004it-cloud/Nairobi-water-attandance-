@@ -245,7 +245,7 @@ export default function DashboardTab({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hidden md:block">
           <table className="w-full text-left border-collapse">
             <thead className="bg-[#f1f4f3] border-b border-[#e1e4e8]">
               <tr>
@@ -326,6 +326,43 @@ export default function DashboardTab({
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile-friendly list for small screens */}
+        <div className="md:hidden p-4 space-y-3">
+          {logs.slice(0, 5).map((log) => {
+            const associatedEmployee = employees.find(e => e.id === log.employeeId);
+            const position = associatedEmployee ? associatedEmployee.position : 'Staff Member';
+
+            return (
+              <div key={log.id} className="flex items-center justify-between gap-3 rounded-lg border border-[#e1e4e8] bg-white p-3 shadow-sm">
+                <div className="flex items-center gap-3">
+                  {log.imageUrl ? (
+                    <img src={log.imageUrl} alt={log.employeeName} className="w-12 h-12 rounded-full object-cover border border-[#e1e4e8]" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className={`w-12 h-12 rounded-full ${log.avatarBg || 'bg-blue-600'} flex items-center justify-center text-white text-sm font-bold shadow-sm`}>
+                      {log.avatarInitials}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm font-bold text-[#181c1c]">{log.employeeName}</div>
+                    <div className="text-xs text-[#727784]">{log.department} • {position}</div>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-sm font-mono text-[#181c1c]">{log.checkInTime}</div>
+                  <div className={`mt-2 inline-flex px-3 py-1 rounded-full text-[11px] font-bold ${
+                    log.status === 'LATE'
+                      ? 'bg-[#ffdad6] text-[#ba1a1a] border border-[#ffdad6]'
+                      : log.status === 'GRACE PERIOD'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                      : 'bg-[#e6f4ea] text-[#1e7e34] border border-[#e6f4ea]'
+                  }`}>{log.status}</div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="p-4 bg-[#f1f4f3]/50 text-center border-t border-[#e1e4e8]">
