@@ -281,12 +281,12 @@ export default function App() {
       <header className="no-print sticky top-0 z-50 border-b border-white/20 bg-gradient-to-r from-[#003f87] via-[#0056b3] to-[#2f7fe8] text-white shadow-[0_20px_60px_-24px_rgba(0,63,135,0.7)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="relative h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 flex items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white p-1 sm:p-2 shadow-sm ring-2 ring-white/40 z-50">
+            <div className="relative h-16 w-16 sm:h-20 sm:w-20 flex-shrink-0 flex items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white p-1 sm:p-2 shadow-lg ring-4 ring-white/60 z-50 transition-transform duration-200 hover:scale-105">
               <img
                 src="/logo-nairobi.png"
                 alt="Nairobi Water logo"
                 title="Nairobi Water"
-                className="h-12 w-12 sm:h-14 sm:w-14 object-contain object-center"
+                className="h-12 w-12 sm:h-14 sm:w-14 object-contain object-center transition-transform duration-200 will-change-transform"
               />
             </div>
             <div className="min-w-0">
