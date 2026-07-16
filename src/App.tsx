@@ -300,20 +300,32 @@ export default function App() {
 
           <div className="ml-auto flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigateToPath('/reception')}
-                className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
-              >
-                Reception
-              </button>
-              <button
-                type="button"
-                onClick={() => navigateToPath('/admin')}
-                className="rounded-2xl border border-white/20 bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-500"
-              >
-                Admin
-              </button>
+              {isReceptionPage ? (
+                <button
+                  type="button"
+                  onClick={() => navigateToPath('/reception')}
+                  className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
+                >
+                  Reception
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => navigateToPath('/reception')}
+                    className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
+                  >
+                    Reception
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigateToPath('/admin')}
+                    className="rounded-2xl border border-white/20 bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-500"
+                  >
+                    Admin
+                  </button>
+                </>
+              )}
             </div>
             <div className="relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-slate-950/80 via-slate-900/75 to-slate-800/80 px-4 py-3 text-right shadow-[0_30px_80px_-34px_rgba(15,23,42,0.7)] backdrop-blur-xl sm:px-5 sm:py-4">
               <div className="absolute -right-6 top-1 h-24 w-24 rounded-full bg-cyan-400/10 blur-3xl"></div>
