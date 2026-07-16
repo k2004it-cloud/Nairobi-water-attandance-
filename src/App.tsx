@@ -281,11 +281,11 @@ export default function App() {
       <header className="no-print sticky top-0 z-50 border-b border-white/20 bg-gradient-to-r from-[#003f87] via-[#0056b3] to-[#2f7fe8] text-white shadow-[0_20px_60px_-24px_rgba(0,63,135,0.7)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-20 w-28 shrink-0 overflow-hidden rounded-lg border border-white/30 bg-transparent shadow-sm ring-1 ring-white/40 sm:h-24 sm:w-32">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/20 bg-transparent shadow-sm ring-1 ring-white/40 sm:h-24 sm:w-24">
               <img
-                src="/logo-nairobi-cropped.png"
+                src="/logo-nairobi.png"
                 alt="Nairobi Water logo"
-                className="h-full w-full object-contain"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
             <div className="min-w-0">
