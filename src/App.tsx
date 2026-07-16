@@ -7,8 +7,21 @@ import {
   Bell,
   type LucideIcon
 } from 'lucide-react';
-import { Employee, CheckInLog, Tab, DashboardStats, CheckInStatus, AttendanceWindowStatus } from './types';
-import { INITIAL_EMPLOYEES, INITIAL_LOGS } from './data';
+import {
+  Employee,
+  CheckInLog,
+  Tab,
+  DashboardStats,
+  CheckInStatus,
+  AttendanceWindowStatus
+} from './types';
+import {
+  loadAppData,
+  checkInEmployee,
+  addEmployee,
+  editEmployee,
+  deleteEmployee
+} from './services/api';
 
 import AttendanceTab from './components/AttendanceTab';
 import AttendanceDetailPage from './components/AttendanceDetailPage';
@@ -16,19 +29,13 @@ import DashboardTab from './components/DashboardTab';
 import AdminTab from './components/AdminTab';
 import ReportsTab from './components/ReportsTab';
 
-const STORAGE_KEYS = {
-  employees: 'nw_employees',
-  logs: 'nw_logs',
-  stats: 'nw_stats'
-} as const;
-
 const DEFAULT_STATS: DashboardStats = {
-  totalEmployees: 450,
-  checkedIn: 320,
-  onTime: 280,
-  gracePeriod: 30,
-  lateArrivals: 10,
-  unaccounted: 130
+  totalEmployees: 0,
+  checkedIn: 0,
+  onTime: 0,
+  gracePeriod: 0,
+  lateArrivals: 0,
+  unaccounted: 0
 };
 
 const AVATAR_BG_COLORS = [
@@ -47,6 +54,12 @@ const NAV_ITEMS: { id: Tab; label: string; Icon: LucideIcon }[] = [
   { id: 'reports', label: 'Reports', Icon: FileText }
 ];
 
+const DEFAULT_APP_DATA = {
+  employees: [] as Employee[],
+  logs: [] as CheckInLog[],
+  stats: DEFAULT_STATS
+};
+
 function getSystemCheckInStatus(date: Date): AttendanceWindowStatus {
   const minutes = date.getHours() * 60 + date.getMinutes();
   const openStart = 7 * 60;
@@ -58,24 +71,6 @@ function getSystemCheckInStatus(date: Date): AttendanceWindowStatus {
   if (minutes <= onTimeCutoff) return 'ON TIME';
   if (minutes <= graceCutoff) return 'GRACE PERIOD';
   return 'LATE';
-}
-
-function loadStoredValue<T>(key: string, fallback: T): T {
-  try {
-    const saved = window.localStorage.getItem(key);
-    return saved ? (JSON.parse(saved) as T) : fallback;
-  } catch {
-    window.localStorage.removeItem(key);
-    return fallback;
-  }
-}
-
-function saveStoredValue(key: string, value: unknown) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Storage can fail in private mode or when the quota is full.
-  }
 }
 
 function formatCheckInTime(date: Date) {
@@ -97,33 +92,34 @@ function getInitials(name: string) {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('attendance');
+  const initialRoute = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '/';
+  const initialPagePath = initialRoute.includes('/admin') ? 'admin' : 'reception';
+  const [activeTab, setActiveTab] = useState<Tab>(initialPagePath === 'admin' ? 'dashboard' : 'attendance');
 
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    return loadStoredValue(STORAGE_KEYS.employees, INITIAL_EMPLOYEES);
-  });
-
-  const [logs, setLogs] = useState<CheckInLog[]>(() => {
-    return loadStoredValue(STORAGE_KEYS.logs, INITIAL_LOGS);
-  });
-
-  const [stats, setStats] = useState<DashboardStats>(() => {
-    return loadStoredValue(STORAGE_KEYS.stats, DEFAULT_STATS);
-  });
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [logs, setLogs] = useState<CheckInLog[]>([]);
+  const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    saveStoredValue(STORAGE_KEYS.employees, employees);
-  }, [employees]);
+    async function loadData() {
+      try {
+        const data = await loadAppData();
+        setEmployees(Array.isArray(data.employees) ? data.employees : []);
+        setLogs(Array.isArray(data.logs) ? data.logs : []);
+        setStats(data.stats ?? DEFAULT_STATS);
+      } catch (err) {
+        setError((err as Error).message || 'Unable to load app data.');
+      } finally {
+        setLoading(false);
+      }
+    }
 
-  useEffect(() => {
-    saveStoredValue(STORAGE_KEYS.logs, logs);
-  }, [logs]);
+    loadData();
+  }, []);
 
-  useEffect(() => {
-    saveStoredValue(STORAGE_KEYS.stats, stats);
-  }, [stats]);
-
-  const checkedInIds: Set<string> = new Set(logs.map((log) => log.employeeId));
+  const checkedInIds: Set<string> = new Set((logs ?? []).map((log) => log.employeeId));
   const [detailSection, setDetailSection] = useState<'roster' | 'active' | 'recorded' | 'pending' | null>(null);
 
   const [clockTime, setClockTime] = useState('');
@@ -131,8 +127,17 @@ export default function App() {
   const [systemCheckInStatus, setSystemCheckInStatus] = useState<AttendanceWindowStatus>(() =>
     getSystemCheckInStatus(new Date())
   );
+  const [pagePath, setPagePath] = useState<'reception' | 'admin'>(initialPagePath);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem('nw-admin-auth') === 'true'
+  );
+  const [adminPassword, setAdminPassword] = useState('');
+  const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin2030';
 
   const isCheckInClosed = systemCheckInStatus === 'CLOSED';
+  const isReceptionPage = pagePath === 'reception';
+  const isAdminPage = pagePath === 'admin';
+
   const handleShowDetail = (section: 'roster' | 'active' | 'recorded' | 'pending') => {
     setDetailSection(section);
   };
@@ -140,106 +145,96 @@ export default function App() {
     setDetailSection(null);
   };
 
-  const handleCheckIn = (employeeId: string): { success: boolean; status?: CheckInStatus } => {
-    if (isCheckInClosed) return { success: false };
-    const employee = employees.find((e) => e.id === employeeId);
-    if (!employee) return { success: false };
+  const navigateToPath = (path: string) => {
+    const nextPage = path.toLowerCase().includes('/admin') ? 'admin' : 'reception';
+    window.history.pushState(null, '', nextPage === 'admin' ? '/admin' : '/reception');
+    setPagePath(nextPage);
+    setActiveTab(nextPage === 'admin' ? 'dashboard' : 'attendance');
+  };
 
-    const alreadyCheckedIn = logs.some((l) => l.employeeId === employeeId);
-    if (alreadyCheckedIn) return { success: false };
+  useEffect(() => {
+    if (isReceptionPage && activeTab !== 'attendance') {
+      setActiveTab('attendance');
+    }
+  }, [isReceptionPage, activeTab]);
 
-    const randomBg = AVATAR_BG_COLORS[Math.floor(Math.random() * AVATAR_BG_COLORS.length)];
-    const checkedAt = new Date();
-    const status = getSystemCheckInStatus(checkedAt);
-    if (status === 'CLOSED') return { success: false };
-
-    const newLog: CheckInLog = {
-      id: `LOG-${Date.now()}`,
-      employeeId: employee.id,
-      employeeName: employee.name,
-      department: employee.department,
-      checkInTime: formatCheckInTime(checkedAt),
-      status,
-      avatarInitials: getInitials(employee.name),
-      avatarBg: randomBg,
-      imageUrl: employee.imageUrl || undefined
+  useEffect(() => {
+    const onPopState = () => {
+      const pathname = window.location.pathname.toLowerCase();
+      const nextPage = pathname.includes('/admin') ? 'admin' : 'reception';
+      setPagePath(nextPage);
+      setActiveTab(nextPage === 'admin' ? 'dashboard' : 'attendance');
     };
 
-    setLogs((prev) => [newLog, ...prev]);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
-    setStats((prev) => {
-      const nextCheckedIn = prev.checkedIn + 1;
-      const nextOnTime = status === 'ON TIME' ? prev.onTime + 1 : prev.onTime;
-      const nextGrace = status === 'GRACE PERIOD' ? prev.gracePeriod + 1 : prev.gracePeriod;
-      const nextLate = status === 'LATE' ? prev.lateArrivals + 1 : prev.lateArrivals;
-      const nextUnaccounted = Math.max(0, prev.totalEmployees - nextCheckedIn);
+  const handleAdminLogin = () => {
+    if (adminPassword === ADMIN_PASSWORD) {
+      setIsAdminAuthenticated(true);
+      window.localStorage.setItem('nw-admin-auth', 'true');
+      setError(null);
+    } else {
+      setError('Admin password is incorrect.');
+    }
+  };
 
-      return {
-        totalEmployees: prev.totalEmployees,
-        checkedIn: nextCheckedIn,
-        onTime: nextOnTime,
-        gracePeriod: nextGrace,
-        lateArrivals: nextLate,
-        unaccounted: nextUnaccounted
-      };
-    });
+  const handleAdminLogout = () => {
+    setIsAdminAuthenticated(false);
+    window.localStorage.removeItem('nw-admin-auth');
+    setError(null);
+  };
 
-    return { success: true, status };
+  const handleCheckIn = async (employeeId: string): Promise<{ success: boolean; status?: CheckInStatus }> => {
+    if (isCheckInClosed) return { success: false };
+
+    try {
+      const result = await checkInEmployee(employeeId);
+      setEmployees(result.employees);
+      setLogs(result.logs);
+      setStats(result.stats);
+      setError(null);
+      return { success: true, status: result.status };
+    } catch (err) {
+      setError((err as Error).message || 'Unable to check in employee.');
+      return { success: false };
+    }
   };
 
   // Add/Edit/Delete Employees in state
-  const handleAddEmployee = (newEmp: Employee) => {
-    setEmployees((prev) => [newEmp, ...prev]);
-    setStats((prev) => ({
-      ...prev,
-      totalEmployees: prev.totalEmployees + 1,
-      unaccounted: prev.unaccounted + 1
-    }));
+  const handleAddEmployee = async (newEmp: Employee) => {
+    try {
+      const result = await addEmployee(newEmp);
+      setEmployees(result.employees);
+      setStats(result.stats);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Unable to add employee.');
+    }
   };
 
-  const handleEditEmployee = (updatedEmp: Employee) => {
-    setEmployees((prev) =>
-      prev.map((emp) => (emp.id === updatedEmp.id ? updatedEmp : emp))
-    );
-    setLogs((prev) =>
-      prev.map((log) =>
-        log.employeeId === updatedEmp.id
-          ? {
-            ...log,
-            employeeName: updatedEmp.name,
-            department: updatedEmp.department,
-            avatarInitials: getInitials(updatedEmp.name),
-            imageUrl: updatedEmp.imageUrl || undefined
-          }
-          : log
-      )
-    );
+  const handleEditEmployee = async (updatedEmp: Employee) => {
+    try {
+      const result = await editEmployee(updatedEmp);
+      setEmployees(result.employees);
+      setStats(result.stats);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Unable to update employee.');
+    }
   };
 
-  const handleDeleteEmployee = (id: string) => {
-    setEmployees((prev) => prev.filter((emp) => emp.id !== id));
-    setLogs((prev) => prev.filter((log) => log.employeeId !== id));
-    setStats((prev) => {
-      const isCheckedIn = logs.some((l) => l.employeeId === id);
-      const nextTotal = Math.max(0, prev.totalEmployees - 1);
-      const nextCheckedIn = isCheckedIn ? Math.max(0, prev.checkedIn - 1) : prev.checkedIn;
-
-      const userLog = logs.find((l) => l.employeeId === id);
-      const status = userLog?.status;
-      const nextOnTime = status === 'ON TIME' ? Math.max(0, prev.onTime - 1) : prev.onTime;
-      const nextGrace = status === 'GRACE PERIOD' ? Math.max(0, prev.gracePeriod - 1) : prev.gracePeriod;
-      const nextLate = status === 'LATE' ? Math.max(0, prev.lateArrivals - 1) : prev.lateArrivals;
-      const nextUnaccounted = Math.max(0, nextTotal - nextCheckedIn);
-
-      return {
-        totalEmployees: nextTotal,
-        checkedIn: nextCheckedIn,
-        onTime: nextOnTime,
-        gracePeriod: nextGrace,
-        lateArrivals: nextLate,
-        unaccounted: nextUnaccounted
-      };
-    });
+  const handleDeleteEmployee = async (id: string) => {
+    try {
+      const result = await deleteEmployee(id);
+      setEmployees(result.employees);
+      setLogs(result.logs);
+      setStats(result.stats);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message || 'Unable to delete employee.');
+    }
   };
 
   useEffect(() => {
@@ -255,6 +250,28 @@ export default function App() {
 
     return () => clearInterval(timer);
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700">
+        <div className="text-center">
+          <p className="text-lg font-semibold">Loading attendance data...</p>
+          <p className="text-sm text-slate-500 mt-2">Please wait while the system initializes.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-red-700 px-4">
+        <div className="max-w-lg rounded-3xl border border-red-200 bg-white p-8 shadow-sm">
+          <h2 className="text-xl font-bold">Unable to load the attendance system</h2>
+          <p className="mt-3 text-sm text-slate-600">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen overflow-hidden app-background flex flex-col selection:bg-[#0B5ED7]/15">
@@ -276,12 +293,28 @@ export default function App() {
                 Nairobi Water
               </h1>
               <p className="truncate text-xs font-medium text-blue-50 sm:text-sm">
-                Attendance System
+                {isReceptionPage ? 'Reception Attendance' : 'Admin Management'}
               </p>
             </div>
           </div>
 
           <div className="ml-auto flex items-center gap-3 sm:gap-4">
+            <div className="hidden sm:flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigateToPath('/reception')}
+                className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
+              >
+                Reception
+              </button>
+              <button
+                type="button"
+                onClick={() => navigateToPath('/admin')}
+                className="rounded-2xl border border-white/20 bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-500"
+              >
+                Admin
+              </button>
+            </div>
             <div className="relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-slate-950/80 via-slate-900/75 to-slate-800/80 px-4 py-3 text-right shadow-[0_30px_80px_-34px_rgba(15,23,42,0.7)] backdrop-blur-xl sm:px-5 sm:py-4">
               <div className="absolute -right-6 top-1 h-24 w-24 rounded-full bg-cyan-400/10 blur-3xl"></div>
               <div className="absolute -left-6 bottom-1 h-20 w-20 rounded-full bg-white/10 blur-3xl"></div>
@@ -308,7 +341,7 @@ export default function App() {
 
       {/* Main Container */}
       <div className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 py-6 pb-28 sm:px-6 sm:py-8">
-        {activeTab === 'attendance' && detailSection === null && (
+        {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection === null && (
           <AttendanceTab
             employees={employees}
             logs={logs}
@@ -320,7 +353,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'attendance' && detailSection !== null && (
+        {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection !== null && (
           <AttendanceDetailPage
             section={detailSection}
             employees={employees}
@@ -330,29 +363,69 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'dashboard' && (
-          <DashboardTab
-            employees={employees}
-            logs={logs}
-            stats={stats}
-            onNavigateToTab={setActiveTab}
-          />
+        {isAdminPage && !isAdminAuthenticated && (
+          <div className="max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <h2 className="text-2xl font-bold text-slate-900">Admin login</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Enter the admin password to access employee management and sensitive controls.
+            </p>
+            <div className="mt-6 space-y-4">
+              <label className="block text-sm font-semibold text-slate-700">Password</label>
+              <input
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Enter admin password"
+              />
+              <button
+                type="button"
+                onClick={handleAdminLogin}
+                className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+              >
+                Unlock admin area
+              </button>
+            </div>
+          </div>
         )}
 
-        {activeTab === 'admin' && (
-          <AdminTab
-            employees={employees}
-            onAddEmployee={handleAddEmployee}
-            onEditEmployee={handleEditEmployee}
-            onDeleteEmployee={handleDeleteEmployee}
-          />
-        )}
+        {isAdminPage && isAdminAuthenticated && (
+          <>
+            <div className="mb-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleAdminLogout}
+                className="rounded-2xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+              >
+                Sign out
+              </button>
+            </div>
 
-        {activeTab === 'reports' && (
-          <ReportsTab
-            logs={logs}
-            stats={stats}
-          />
+            {activeTab === 'dashboard' && (
+              <DashboardTab
+                employees={employees}
+                logs={logs}
+                stats={stats}
+                onNavigateToTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === 'admin' && (
+              <AdminTab
+                employees={employees}
+                onAddEmployee={handleAddEmployee}
+                onEditEmployee={handleEditEmployee}
+                onDeleteEmployee={handleDeleteEmployee}
+              />
+            )}
+
+            {activeTab === 'reports' && (
+              <ReportsTab
+                logs={logs}
+                stats={stats}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -361,27 +434,44 @@ export default function App() {
         aria-label="Primary navigation"
         className="no-print fixed bottom-0 left-1/2 z-50 flex w-[calc(100%-1rem)] max-w-xl -translate-x-1/2 items-center justify-around gap-1 rounded-t-2xl border border-b-0 border-blue-100 bg-white/70 px-2 py-2 shadow-lg backdrop-blur-xl"
       >
-        {NAV_ITEMS.map(({ id, label, Icon }) => {
-          const isActive = activeTab === id;
+        {isReceptionPage ? (
+          <button
+            type="button"
+            onClick={() => setActiveTab('attendance')}
+            aria-current={activeTab === 'attendance' ? 'page' : undefined}
+            className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${activeTab === 'attendance'
+              ? 'bg-[#0056b3] text-white font-bold shadow-sm'
+              : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
+              }`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
+              Attendance
+            </span>
+          </button>
+        ) : (
+          NAV_ITEMS.map(({ id, label, Icon }) => {
+            const isActive = activeTab === id;
 
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setActiveTab(id)}
-              aria-current={isActive ? 'page' : undefined}
-              className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${isActive
-                ? 'bg-[#0056b3] text-white font-bold shadow-sm'
-                : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
-                }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
-                {label}
-              </span>
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${isActive
+                  ? 'bg-[#0056b3] text-white font-bold shadow-sm'
+                  : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
+                  }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
+                  {label}
+                </span>
+              </button>
+            );
+          })
+        )}
       </nav>
     </div>
   );
