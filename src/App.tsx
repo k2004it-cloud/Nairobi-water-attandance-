@@ -20,7 +20,11 @@ import {
   checkInEmployee,
   addEmployee,
   editEmployee,
-  deleteEmployee
+  deleteEmployee,
+  adminLogin,
+  adminChangePassword,
+  adminForgotPassword,
+  adminResetPassword
 } from './services/api';
 
 import AttendanceTab from './components/AttendanceTab';
@@ -134,6 +138,20 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin2030';
 
+  // Admin auth & password management UI state
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotToken, setForgotToken] = useState<string | null>(null);
+  const [resetTokenInput, setResetTokenInput] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+
+  const [showChangeForm, setShowChangeForm] = useState(false);
+  const [changeCurrentPassword, setChangeCurrentPassword] = useState('');
+  const [changeNewPassword, setChangeNewPassword] = useState('');
+  const [changeConfirmPassword, setChangeConfirmPassword] = useState('');
+  const [changeMessage, setChangeMessage] = useState<string | null>(null);
+
   const isCheckInClosed = systemCheckInStatus === 'CLOSED';
   const isReceptionPage = pagePath === 'reception';
   const isAdminPage = pagePath === 'admin';
@@ -171,19 +189,88 @@ export default function App() {
   }, []);
 
   const handleAdminLogin = () => {
-    if (adminPassword === ADMIN_PASSWORD) {
-      setIsAdminAuthenticated(true);
-      window.localStorage.setItem('nw-admin-auth', 'true');
-      setError(null);
-    } else {
-      setError('Admin password is incorrect.');
-    }
+    (async () => {
+      try {
+        const res = await adminLogin(adminPassword);
+        if (res && (res as any).success) {
+          setIsAdminAuthenticated(true);
+          window.localStorage.setItem('nw-admin-auth', 'true');
+          setError(null);
+        } else {
+          setError('Admin password is incorrect.');
+        }
+      } catch (err) {
+        setError((err as Error).message || 'Admin password is incorrect.');
+      }
+    })();
   };
 
   const handleAdminLogout = () => {
     setIsAdminAuthenticated(false);
     window.localStorage.removeItem('nw-admin-auth');
     setError(null);
+    setAdminPassword('');
+  };
+
+  // Forgot / Reset password
+  const handleForgotRequest = async () => {
+    setResetMessage(null);
+    setForgotToken(null);
+
+    try {
+      const res = await adminForgotPassword(forgotEmail);
+      if (res && (res as any).token) {
+        setForgotToken((res as any).token);
+        setResetMessage('A reset token was generated (displayed for testing).');
+      } else {
+        setResetMessage('If the email is registered, a reset link will be sent.');
+      }
+    } catch (err) {
+      setResetMessage((err as Error).message || 'Unable to request password reset.');
+    }
+  };
+
+  const handleResetWithToken = async () => {
+    setResetMessage(null);
+    const token = resetTokenInput || forgotToken || '';
+    if (!token || !resetNewPassword) {
+      setResetMessage('Please provide token and new password.');
+      return;
+    }
+
+    try {
+      await adminResetPassword(token, resetNewPassword);
+      setResetMessage('Password has been reset. You can now login with the new password.');
+      setForgotToken(null);
+      setResetTokenInput('');
+      setResetNewPassword('');
+    } catch (err) {
+      setResetMessage((err as Error).message || 'Unable to reset password.');
+    }
+  };
+
+  // Change password while authenticated
+  const handleChangePassword = async () => {
+    setChangeMessage(null);
+    if (!changeCurrentPassword || !changeNewPassword) {
+      setChangeMessage('Please fill both current and new passwords');
+      return;
+    }
+    if (changeNewPassword !== changeConfirmPassword) {
+      setChangeMessage('New passwords do not match');
+      return;
+    }
+
+    try {
+      await adminChangePassword(changeCurrentPassword, changeNewPassword);
+      setChangeMessage('Password changed successfully');
+      setChangeCurrentPassword('');
+      setChangeNewPassword('');
+      setChangeConfirmPassword('');
+      setShowChangeForm(false);
+    } catch (err) {
+      setChangeMessage((err as Error).message || 'Unable to change password.');
+    }
   };
 
   const handleCheckIn = async (employeeId: string): Promise<{ success: boolean; status?: CheckInStatus }> => {
@@ -391,13 +478,97 @@ export default function App() {
                 className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 placeholder="Enter admin password"
               />
-              <button
-                type="button"
-                onClick={handleAdminLogin}
-                className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
-              >
-                Unlock admin area
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleAdminLogin}
+                  className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+                >
+                  Unlock admin area
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForgot((s) => !s); setResetMessage(null); setForgotToken(null); }}
+                  className="text-sm text-[#003f87] underline hover:opacity-90"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              {showForgot && (
+                <div className="mt-4 space-y-3 rounded-lg border border-dashed p-4 bg-gray-50">
+                  <p className="text-sm text-[#424752]">Enter the admin email to request a password reset. A reset token will be displayed for testing.</p>
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                    placeholder="Admin email"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleForgotRequest}
+                      className="rounded-lg bg-[#0056b3] px-4 py-2 text-white text-sm"
+                    >
+                      Request reset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowForgot(false); setResetMessage(null); setForgotToken(null); }}
+                      className="rounded-lg border px-4 py-2 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+
+                  {forgotToken && (
+                    <div className="mt-3 text-sm text-[#003f87]">
+                      <p>Reset token (for testing):</p>
+                      <pre className="mt-1 rounded bg-white/90 p-2 text-xs">{forgotToken}</pre>
+                      <p className="mt-2 text-xs text-[#727784]">Use the token below to set a new password.</p>
+                    </div>
+                  )}
+
+                  {resetMessage && (
+                    <p className="mt-2 text-sm text-[#424752]">{resetMessage}</p>
+                  )}
+
+                  <div className="mt-3 grid grid-cols-1 gap-2">
+                    <input
+                      type="text"
+                      value={resetTokenInput}
+                      onChange={(e) => setResetTokenInput(e.target.value)}
+                      placeholder="Enter reset token"
+                      className="rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                    <input
+                      type="password"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      placeholder="New password"
+                      className="rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleResetWithToken}
+                        className="rounded-lg bg-green-600 px-4 py-2 text-white text-sm"
+                      >
+                        Reset password
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setResetTokenInput(''); setResetNewPassword(''); setResetMessage(null); }}
+                        className="rounded-lg border px-4 py-2 text-sm"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}
@@ -405,14 +576,58 @@ export default function App() {
         {isAdminPage && isAdminAuthenticated && (
           <>
             <div className="mb-6 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={handleAdminLogout}
-                className="rounded-2xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-              >
-                Sign out
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangeForm((s) => !s)}
+                  className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                  Change password
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdminLogout}
+                  className="rounded-2xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
+
+            {showChangeForm && (
+              <div className="max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
+                <h3 className="text-lg font-bold">Change admin password</h3>
+                <p className="mt-2 text-sm text-slate-600">Provide your current password and a new password to update.</p>
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <input
+                    type="password"
+                    value={changeCurrentPassword}
+                    onChange={(e) => setChangeCurrentPassword(e.target.value)}
+                    placeholder="Current password"
+                    className="rounded-lg border border-slate-300 px-3 py-2"
+                  />
+                  <input
+                    type="password"
+                    value={changeNewPassword}
+                    onChange={(e) => setChangeNewPassword(e.target.value)}
+                    placeholder="New password"
+                    className="rounded-lg border border-slate-300 px-3 py-2"
+                  />
+                  <input
+                    type="password"
+                    value={changeConfirmPassword}
+                    onChange={(e) => setChangeConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="rounded-lg border border-slate-300 px-3 py-2"
+                  />
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <button type="button" onClick={handleChangePassword} className="rounded-lg bg-[#0056b3] px-4 py-2 text-white text-sm">Save</button>
+                  <button type="button" onClick={() => { setShowChangeForm(false); setChangeMessage(null); }} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+                </div>
+                {changeMessage && <p className="mt-3 text-sm text-red-600">{changeMessage}</p>}
+              </div>
+            )}
 
             {activeTab === 'dashboard' && (
               <DashboardTab

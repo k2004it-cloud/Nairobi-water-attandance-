@@ -4,6 +4,15 @@ import { INITIAL_EMPLOYEES, INITIAL_LOGS } from '../src/data';
 let employees: Employee[] = [...INITIAL_EMPLOYEES];
 let logs: CheckInLog[] = [...INITIAL_LOGS];
 let stats: DashboardStats = computeStats();
+// Simple in-memory admin record for prototype purposes
+let admin = {
+  // default can be overridden by VERCEL env var or local env when deployed
+  password: process.env.ADMIN_PASSWORD || 'admin2030',
+  email: process.env.ADMIN_EMAIL || 'admin@nairobi.local'
+};
+
+// reset tokens stored as token -> { email, expires }
+const resetTokens: Record<string, { email: string; expires: number }> = {};
 
 function getSystemCheckInStatus(date: Date): CheckInStatus | 'CLOSED' {
   const minutes = date.getHours() * 60 + date.getMinutes();
@@ -50,6 +59,46 @@ function ensureStore() {
 export function getAppData() {
   ensureStore();
   return { employees, logs, stats };
+}
+
+export function verifyAdminPassword(password: string) {
+  return password === admin.password;
+}
+
+export function setAdminPassword(currentPassword: string, newPassword: string) {
+  if (currentPassword !== admin.password) {
+    throw new Error('Current admin password is incorrect');
+  }
+  admin.password = newPassword;
+  return { email: admin.email };
+}
+
+export function createResetToken(email: string) {
+  // In a real system we'd email this token; here we store and return it for testing
+  if (email !== admin.email) {
+    // don't reveal whether email exists in production
+    throw new Error('If the email is registered, a reset link will be sent');
+  }
+
+  const token = `rt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const expires = Date.now() + 1000 * 60 * 60; // 1 hour
+  resetTokens[token] = { email, expires };
+  return token;
+}
+
+export function resetPasswordWithToken(token: string, newPassword: string) {
+  const entry = resetTokens[token];
+  if (!entry || entry.expires < Date.now()) {
+    throw new Error('Reset token is invalid or has expired');
+  }
+
+  if (entry.email !== admin.email) {
+    throw new Error('Reset token email mismatch');
+  }
+
+  admin.password = newPassword;
+  delete resetTokens[token];
+  return { email: admin.email };
 }
 
 export function checkIn(employeeId: string) {

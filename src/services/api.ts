@@ -116,3 +116,44 @@ export async function deleteEmployee(id: string): Promise<{ employees: Employee[
 
   return parseResponse(response);
 }
+
+// Admin API helpers
+export async function adminLogin(password: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE}/api/admin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'login', password })
+  });
+
+  return parseResponse(response);
+}
+
+export async function adminChangePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE}/api/admin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'change', currentPassword, newPassword })
+  });
+
+  return parseResponse(response);
+}
+
+export async function adminForgotPassword(email: string): Promise<{ success: boolean; token?: string }> {
+  const response = await fetch(`${API_BASE}/api/admin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'forgot', email })
+  });
+
+  return parseResponse(response);
+}
+
+export async function adminResetPassword(token: string, newPassword: string): Promise<{ success: boolean }> {
+  const response = await fetch(`${API_BASE}/api/admin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'reset', token, newPassword })
+  });
+
+  return parseResponse(response);
+}
