@@ -63,6 +63,28 @@ export default function ReportsTab({ logs, stats }: ReportsTabProps) {
         ref={printAreaRef}
         className="report-sheet max-w-[1024px] mx-auto p-8 sm:p-12 bg-white shadow-md rounded-xl border border-[#e1e4e8] print:border-0 print:shadow-none print:p-7 print:m-0 print:max-w-none"
       >
+        <section className="print-header hidden print:block border-b border-[#cbd5e1] pb-4 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[#64748b] mb-2">Nairobi Water & Sewerage Company</p>
+              <h2 className="text-2xl font-black text-[#0f172a] uppercase tracking-tight leading-tight">
+                Attendance Register
+              </h2>
+              <p className="text-sm text-[#475569] mt-2">
+                Official daily attendance record for staff check-in verification and management review.
+              </p>
+            </div>
+            <div className="text-sm text-[#475569] space-y-1 text-left sm:text-right">
+              <div className="font-semibold text-[#0f172a]">Report Date: <span className="font-black">{reportDate}</span></div>
+              <div>Prepared: {currentTimestamp}</div>
+              <div className="mt-2 inline-flex items-center gap-2 bg-[#eef2ff] text-[#1e3a8a] px-3 py-2 rounded-2xl border border-[#c7d2fe] text-[11px] uppercase tracking-[0.18em] font-semibold">
+                <Clock className="w-3.5 h-3.5 text-[#2563eb]" />
+                Attendance Summary
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="print-summary-only hidden">
           <div className="print-summary-only-card">
             <div className="print-summary-only-label">Checked In</div>
@@ -134,8 +156,8 @@ export default function ReportsTab({ logs, stats }: ReportsTabProps) {
               </tr>
             </thead>
             <tbody className="bg-white text-xs text-[#181c1c] divide-y divide-[#e1e4e8]">
-              {logs.map((log, index) => (
-                <tr key={log.id} className={`hover:bg-[#f1f4f3]/40 transition-colors duration-150 ${index >= 40 ? 'print:hidden' : ''}`}>
+              {logs.map((log) => (
+                <tr key={log.id} className="hover:bg-[#f1f4f3]/40 transition-colors duration-150">
                   <td className="p-3 font-bold text-[#003f87]">{log.employeeId}</td>
                   <td className="p-3 font-semibold">{log.employeeName}</td>
                   <td className="p-3 text-[#424752]">{log.department}</td>
@@ -151,15 +173,6 @@ export default function ReportsTab({ logs, stats }: ReportsTabProps) {
                       {log.status === 'GRACE PERIOD' ? 'GRACE' : log.status}
                     </span>
                   </td>
-                </tr>
-              ))}
-              {Array.from({ length: Math.max(0, 40 - logs.length) }, (_, idx) => (
-                <tr key={`blank-${idx}`} className="hidden print:table-row">
-                  <td className="p-3 h-10">&nbsp;</td>
-                  <td className="p-3 h-10">&nbsp;</td>
-                  <td className="p-3 h-10">&nbsp;</td>
-                  <td className="p-3 h-10">&nbsp;</td>
-                  <td className="p-3 h-10">&nbsp;</td>
                 </tr>
               ))}
             </tbody>

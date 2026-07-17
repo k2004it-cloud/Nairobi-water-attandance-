@@ -167,7 +167,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isReceptionPage && activeTab !== 'attendance') {
+    if (isReceptionPage && activeTab !== 'attendance' && activeTab !== 'reports') {
       setActiveTab('attendance');
     }
   }, [isReceptionPage, activeTab]);
@@ -454,6 +454,13 @@ export default function App() {
           />
         )}
 
+        {(activeTab === 'reports' && (isAdminPage || isReceptionPage)) && (
+          <ReportsTab
+            logs={logs}
+            stats={stats}
+          />
+        )}
+
         {isAdminPage && !isAdminAuthenticated && (
           <div className="relative max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             {adminLoading && (
@@ -668,20 +675,36 @@ export default function App() {
         className="no-print fixed bottom-0 left-1/2 z-50 flex w-[calc(100%-1rem)] max-w-xl -translate-x-1/2 items-center justify-around gap-1 rounded-t-2xl border border-b-0 border-blue-100 bg-white/70 px-2 py-2 shadow-lg backdrop-blur-xl"
       >
         {isReceptionPage ? (
-          <button
-            type="button"
-            onClick={() => setActiveTab('attendance')}
-            aria-current={activeTab === 'attendance' ? 'page' : undefined}
-            className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${activeTab === 'attendance'
-              ? 'bg-[#0056b3] text-white font-bold shadow-sm'
-              : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
-              }`}
-          >
-            <ClipboardList className="w-5 h-5" />
-            <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
-              Attendance
-            </span>
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveTab('attendance')}
+              aria-current={activeTab === 'attendance' ? 'page' : undefined}
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${activeTab === 'attendance'
+                ? 'bg-[#0056b3] text-white font-bold shadow-sm'
+                : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
+                }`}
+            >
+              <ClipboardList className="w-5 h-5" />
+              <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
+                Attendance
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('reports')}
+              aria-current={activeTab === 'reports' ? 'page' : undefined}
+              className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${activeTab === 'reports'
+                ? 'bg-[#0056b3] text-white font-bold shadow-sm'
+                : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
+                }`}
+            >
+              <FileText className="w-5 h-5" />
+              <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
+                Reports
+              </span>
+            </button>
+          </>
         ) : (
           NAV_ITEMS.map(({ id, label, Icon }) => {
             const isActive = activeTab === id;
