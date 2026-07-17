@@ -205,48 +205,76 @@ export default function AdminTab({
             </p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            <div className="relative flex-1 min-w-[260px] lg:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#727784] w-5 h-5" />
-              <input
-                className="w-full pl-10 pr-4 h-11 bg-white border border-[#c2c6d4] rounded-lg focus:ring-2 focus:ring-[#335f9d] focus:border-[#335f9d] text-sm outline-none transition-all"
-                placeholder="Search by name or ID..."
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-            </div>
-            
-            <div className="relative">
-              <select
-                value={selectedDept}
-                onChange={(e) => {
-                  setSelectedDept(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="h-11 px-3 pr-8 bg-white border border-[#c2c6d4] rounded-lg text-sm text-[#181c1c] focus:ring-2 focus:ring-[#335f9d] focus:border-[#335f9d] outline-none cursor-pointer"
-              >
-                {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept === 'All Departments' ? 'All Depts' : dept}</option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={openAddModal}
-              className="h-11 min-w-[150px] w-full sm:w-auto px-4 bg-[#0056b3] hover:bg-[#003f87] text-white font-semibold text-sm rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm cursor-pointer"
-            >
-              <UserPlus className="w-4.5 h-4.5" />
-              Add New
-            </button>
+          <div className="w-full lg:w-auto text-sm text-[#424752]">
+            Use the left sidebar to add employees or apply filters across departments.
           </div>
         </div>
       </section>
 
-      {/* Quick Insights Cards */}
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="space-y-4">
+          <div className="sticky top-24 rounded-3xl border border-[#e1e4e8] bg-white p-6 shadow-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#424752]">
+                Admin Sidebar
+              </p>
+              <h3 className="mt-3 text-xl font-bold text-[#003f87]">
+                Employee Actions
+              </h3>
+            </div>
+            <button
+              onClick={openAddModal}
+              className="mt-4 w-full h-12 rounded-lg bg-[#0056b3] hover:bg-[#003f87] text-white font-semibold transition-all shadow-sm"
+            >
+              <span className="inline-flex items-center justify-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                Add New Employee
+              </span>
+            </button>
+            <div className="mt-6 space-y-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#424752] mb-2">
+                  Search
+                </p>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#727784] w-5 h-5" />
+                  <input
+                    className="w-full h-11 pl-10 pr-4 bg-white border border-[#c2c6d4] rounded-lg focus:ring-2 focus:ring-[#335f9d] focus:border-[#335f9d] text-sm outline-none"
+                    placeholder="Search by name or ID..."
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#424752] mb-2">
+                  Department
+                </p>
+                <select
+                  value={selectedDept}
+                  onChange={(e) => {
+                    setSelectedDept(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full h-11 px-3 border border-[#c2c6d4] rounded-lg bg-white text-sm text-[#181c1c] focus:ring-2 focus:ring-[#335f9d] outline-none"
+                >
+                  {departments.map((dept) => (
+                    <option key={dept} value={dept}>
+                      {dept === 'All Departments' ? 'All Departments' : dept}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div className="space-y-6">
+          {/* Quick Insights Cards */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm">
           <p className="text-[10px] font-bold text-[#424752] uppercase tracking-wider mb-1">
@@ -419,23 +447,13 @@ export default function AdminTab({
           </div>
         </div>
       </div>
-
-      {/* Floating Action Button */}
-      <button
-        onClick={openAddModal}
-        className="fixed bottom-24 right-8 w-14 h-14 bg-[#003f87] hover:bg-[#0056b3] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50 group cursor-pointer"
-        title="Add New Employee"
-      >
-        <UserPlus className="w-6 h-6" />
-        <span className="absolute right-full mr-4 bg-[#2d3131] text-white px-3 py-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-md">
-          Add Employee
-        </span>
-      </button>
+    </div>
+  </div>
 
       {/* Slide-out / Modal Dialog for Add & Edit */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-[#e1e4e8] overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-[#e1e4e8] overflow-hidden max-h-[calc(100vh-4rem)] animate-scale-in">
             <div className="p-1 bg-[#003f87]"></div>
             <div className="px-6 py-4 border-b border-[#e1e4e8] flex items-center justify-between">
               <h3 className="text-xl font-bold text-[#181c1c]">
@@ -449,7 +467,7 @@ export default function AdminTab({
               </button>
             </div>
 
-            <form onSubmit={handleSaveEmployee} className="p-6 space-y-4">
+            <form onSubmit={handleSaveEmployee} className="p-6 space-y-4 overflow-y-auto max-h-[calc(100vh-12rem)]">
               <div>
                 <label className="text-xs font-bold text-[#424752] uppercase block mb-1">
                   Full Name *

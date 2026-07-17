@@ -1,6 +1,33 @@
 import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
+const LOCAL_STORAGE_KEY = 'nairobi_water_attendance_data';
+
+function loadLocalAppData(): AppData | null {
+  if (typeof window === 'undefined') return null;
+
+  const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    const payload = JSON.parse(raw) as Partial<AppData>;
+    const employees = Array.isArray(payload.employees) ? payload.employees : [];
+    const logs = Array.isArray(payload.logs) ? payload.logs : [];
+    const stats = payload.stats ?? computeStats(employees, logs);
+    return { employees, logs, stats };
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalAppData(data: AppData) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+}
+
+function createAppData(employees: Employee[], logs: CheckInLog[]): AppData {
+  return { employees, logs, stats: computeStats(employees, logs) };
+}
 
 function computeStats(employees: Employee[], logs: CheckInLog[]): DashboardStats {
   const totalEmployees = employees.length;
@@ -54,6 +81,8 @@ const DEFAULT_STATS: DashboardStats = {
 };
 
 export async function loadAppData(): Promise<AppData> {
+  const localData = loadLocalAppData();
+
   try {
     const response = await fetch(`${API_BASE}/api/appData`, {
       cache: 'no-store'
@@ -62,58 +91,178 @@ export async function loadAppData(): Promise<AppData> {
     const payload = await parseResponse<Partial<AppData>>(response);
     const employees = Array.isArray(payload.employees) ? payload.employees : [];
     const logs = Array.isArray(payload.logs) ? payload.logs : [];
-
-    return {
+    const appData = {
       employees,
       logs,
       stats: payload.stats ?? computeStats(employees, logs)
     };
+
+    if (employees.length || logs.length) {
+      saveLocalAppData(appData);
+      return appData;
+    }
+
+    if (localData) {
+      return localData;
+    }
+
+    saveLocalAppData(appData);
+    return appData;
   } catch (error) {
-    console.warn('Falling back to empty app data because API was unavailable:', error);
-    return {
-      employees: [],
-      logs: [],
-      stats: DEFAULT_STATS
-    };
+    if (localData) {
+      return localData;
+    }
+
+    return DEFAULT_APP_DATA;
   }
 }
 
 export async function checkInEmployee(employeeId: string): Promise<{ employees: Employee[]; logs: CheckInLog[]; stats: DashboardStats; status: CheckInStatus }> {
-  const response = await fetch(`${API_BASE}/api/checkin`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ employeeId })
-  });
+  const localData = loadLocalAppData() ?? DEFAULT_APP_DATA;
 
-  return parseResponse(response);
+  try {
+    const response = await fetch(`${API_BASE}/api/checkin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId })
+    });
+
+    const result = await parseResponse<{ employees: Employee[]; logs: CheckInLog[]; stats: DashboardStats; status: CheckInStatus }>(response);
+    saveLocalAppData({ employees: result.employees, logs: result.logs, stats: result.stats });
+    return result;
+  } catch (error) {
+    const employee = localData.employees.find((emp) => emp.id === employeeId);
+    if (!employee) {
+      throw new Error('Employee not found');
+    }
+
+    if (localData.logs.some((log) => log.employeeId === employeeId)) {
+      throw new Error('Employee has already checked in');
+    }
+
+    const now = new Date();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const openStart = 6 * 60;
+    const onTimeCutoff = 8 * 60;
+    const closeAt = 16 * 60;
+    let status: CheckInStatus = 'ON TIME';
+
+    if (minutes < openStart || minutes > closeAt) {
+      throw new Error('Check-in is closed for today');
+    }
+
+    if (minutes > onTimeCutoff) {
+      status = 'LATE';
+    }
+
+    const newLog: CheckInLog = {
+      id: `LOG-${Date.now()}`,
+      employeeId: employee.id,
+      employeeName: employee.name,
+      department: employee.department,
+      checkInTime: now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }),
+      status,
+      avatarInitials: employee.name
+        .trim()
+        .split(/\s+/)
+        .map((part) => part[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase(),
+      avatarBg: ['bg-[#0056b3]', 'bg-[#335f9d]', 'bg-indigo-600', 'bg-emerald-600', 'bg-teal-600', 'bg-amber-600'][
+        Math.floor(Math.random() * 6)
+      ],
+      imageUrl: employee.imageUrl || undefined
+    };
+
+    const appData = createAppData(localData.employees, [newLog, ...localData.logs]);
+    saveLocalAppData(appData);
+    return { ...appData, status };
+  }
 }
 
 export async function addEmployee(employee: Employee): Promise<{ employees: Employee[]; stats: DashboardStats }> {
-  const response = await fetch(`${API_BASE}/api/employees`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(employee)
-  });
+  const localData = loadLocalAppData() ?? DEFAULT_APP_DATA;
 
-  return parseResponse(response);
+  try {
+    const response = await fetch(`${API_BASE}/api/employees`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(employee)
+    });
+
+    const result = await parseResponse<{ employees: Employee[]; stats: DashboardStats }>(response);
+    saveLocalAppData({ employees: result.employees, logs: localData.logs, stats: result.stats });
+    return result;
+  } catch (error) {
+    if (localData.employees.some((existing) => existing.id === employee.id)) {
+      throw new Error('Employee ID already exists');
+    }
+
+    const appData = createAppData([employee, ...localData.employees], localData.logs);
+    saveLocalAppData(appData);
+    return { employees: appData.employees, stats: appData.stats };
+  }
 }
 
 export async function editEmployee(employee: Employee): Promise<{ employees: Employee[]; stats: DashboardStats }> {
-  const response = await fetch(`${API_BASE}/api/employees`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(employee)
-  });
+  const localData = loadLocalAppData() ?? DEFAULT_APP_DATA;
 
-  return parseResponse(response);
+  try {
+    const response = await fetch(`${API_BASE}/api/employees`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(employee)
+    });
+
+    const result = await parseResponse<{ employees: Employee[]; stats: DashboardStats }>(response);
+    saveLocalAppData({ employees: result.employees, logs: localData.logs, stats: result.stats });
+    return result;
+  } catch (error) {
+    if (!localData.employees.some((existing) => existing.id === employee.id)) {
+      throw new Error('Employee not found');
+    }
+
+    const employees = localData.employees.map((existing) =>
+      existing.id === employee.id ? employee : existing
+    );
+    const logs = localData.logs.map((log) =>
+      log.employeeId === employee.id
+        ? { ...log, employeeName: employee.name, department: employee.department, imageUrl: employee.imageUrl || undefined }
+        : log
+    );
+    const appData = createAppData(employees, logs);
+    saveLocalAppData(appData);
+    return { employees: appData.employees, stats: appData.stats };
+  }
 }
 
 export async function deleteEmployee(id: string): Promise<{ employees: Employee[]; logs: CheckInLog[]; stats: DashboardStats }> {
-  const response = await fetch(`${API_BASE}/api/employees?id=${encodeURIComponent(id)}`, {
-    method: 'DELETE'
-  });
+  const localData = loadLocalAppData() ?? DEFAULT_APP_DATA;
 
-  return parseResponse(response);
+  try {
+    const response = await fetch(`${API_BASE}/api/employees?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+
+    const result = await parseResponse<{ employees: Employee[]; logs: CheckInLog[]; stats: DashboardStats }>(response);
+    saveLocalAppData({ employees: result.employees, logs: result.logs, stats: result.stats });
+    return result;
+  } catch (error) {
+    if (!localData.employees.some((existing) => existing.id === id)) {
+      throw new Error('Employee not found');
+    }
+
+    const employees = localData.employees.filter((existing) => existing.id !== id);
+    const logs = localData.logs.filter((log) => log.employeeId !== id);
+    const appData = createAppData(employees, logs);
+    saveLocalAppData(appData);
+    return { employees: appData.employees, logs: appData.logs, stats: appData.stats };
+  }
 }
 
 // Admin API helpers
