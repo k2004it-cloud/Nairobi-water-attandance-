@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import {
   Search,
   UserPlus,
@@ -26,7 +26,10 @@ export default function AdminTab({
 }: AdminTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All Departments');
-  const [departments, setDepartments] = useState<string[]>(DEPARTMENTS);
+  const [departments, setDepartments] = useState<string[]>([
+    'All Departments',
+    ...Array.from(new Set(employees.map((emp) => emp.department).filter(Boolean)))
+  ]);
   const [newDepartment, setNewDepartment] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -86,7 +89,7 @@ export default function AdminTab({
 
     setFormId(`NW-${nextNum}`);
     setFormEmail('');
-    setFormDept(departments.length > 1 ? departments[1] : 'All Departments');
+    setFormDept(departments.length > 1 ? departments[1] : 'Finance');
     setFormPosition('');
     setFormImageUrl('');
     setFormImagePreview('');
@@ -96,6 +99,19 @@ export default function AdminTab({
     setEditingEmployeeId(null);
     setIsModalOpen(true);
   };
+
+  useEffect(() => {
+    setDepartments((prev) => {
+      const derived = Array.from(
+        new Set([
+          'All Departments',
+          ...prev.filter((dept) => dept !== 'All Departments'),
+          ...employees.map((emp) => emp.department).filter(Boolean)
+        ])
+      );
+      return derived;
+    });
+  }, [employees]);
 
   const openEditModal = (emp: Employee) => {
     setModalMode('edit');
@@ -221,7 +237,7 @@ export default function AdminTab({
 
             <button
               onClick={openAddModal}
-              className="h-11 px-4 bg-[#0056b3] hover:bg-[#003f87] text-white font-semibold text-sm rounded-lg flex items-center gap-1.5 active:scale-95 transition-all shadow-sm cursor-pointer"
+              className="h-11 min-w-[150px] w-full sm:w-auto px-4 bg-[#0056b3] hover:bg-[#003f87] text-white font-semibold text-sm rounded-lg flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm cursor-pointer"
             >
               <UserPlus className="w-4.5 h-4.5" />
               Add New
@@ -542,20 +558,28 @@ export default function AdminTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="text-xs font-bold text-[#424752] uppercase block mb-1">
                     Department
                   </label>
-                  <select
+                  <input
+                    list="department-list"
                     value={formDept}
                     onChange={(e) => setFormDept(e.target.value)}
-                    className="w-full h-10 px-2 border border-[#c2c6d4] rounded-lg focus:ring-2 focus:ring-[#335f9d] outline-none text-sm text-[#181c1c] cursor-pointer"
-                  >
-                    {DEPARTMENTS.filter(d => d !== 'All Departments').map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
+                    placeholder="Select or type department"
+                    className="w-full h-10 px-3 border border-[#c2c6d4] rounded-lg focus:ring-2 focus:ring-[#335f9d] outline-none text-sm text-[#181c1c]"
+                  />
+                  <datalist id="department-list">
+                    {departments
+                      .filter((dept) => dept !== 'All Departments')
+                      .map((dept) => (
+                        <option key={dept} value={dept} />
+                      ))}
+                  </datalist>
+                  <p className="mt-2 text-xs text-[#727784]">
+                    Type to select an existing department or enter a new one. New entries are preserved for future adds.
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs font-bold text-[#424752] uppercase block mb-1">
