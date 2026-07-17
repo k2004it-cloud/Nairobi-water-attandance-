@@ -1,4 +1,10 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../src/types.js';
+
+const STORE_FILE = path.join(os.tmpdir(), 'attendance-store.json');
+let storeInitialized = false;
 
 let employees: Employee[] = [];
 let logs: CheckInLog[] = [];
@@ -41,8 +47,44 @@ function computeStats(): DashboardStats {
   };
 }
 
+function loadStore() {
+  if (storeInitialized) return;
+  storeInitialized = true;
+
+  try {
+    if (fs.existsSync(STORE_FILE)) {
+      const raw = fs.readFileSync(STORE_FILE, 'utf-8');
+      const data = JSON.parse(raw) as {
+        employees?: Employee[];
+        logs?: CheckInLog[];
+        stats?: DashboardStats;
+      };
+
+      employees = Array.isArray(data.employees) ? data.employees : [];
+      logs = Array.isArray(data.logs) ? data.logs : [];
+      stats = data.stats ?? computeStats();
+      return;
+    }
+  } catch {
+    // If loading fails, continue with an empty store.
+  }
+
+  employees = [];
+  logs = [];
+  stats = computeStats();
+}
+
+function saveStore() {
+  try {
+    const payload = { employees, logs, stats };
+    fs.writeFileSync(STORE_FILE, JSON.stringify(payload, null, 2), 'utf-8');
+  } catch {
+    // Ignore save failures; keep in-memory store available.
+  }
+}
+
 function ensureStore() {
-  // Keep the store empty by default; no seeded test data.
+  loadStore();
 }
 
 export function getAppData() {
@@ -135,6 +177,7 @@ export function checkIn(employeeId: string) {
 
   logs = [newLog, ...logs];
   stats = computeStats();
+  saveStore();
 
   return {
     employees,
@@ -153,6 +196,7 @@ export function addEmployee(employee: Employee) {
 
   employees = [employee, ...employees];
   stats = computeStats();
+  saveStore();
 
   return { employees, stats };
 }
@@ -171,6 +215,7 @@ export function editEmployee(employee: Employee) {
       : log
   );
   stats = computeStats();
+  saveStore();
 
   return { employees, stats };
 }
@@ -185,6 +230,7 @@ export function deleteEmployee(employeeId: string) {
   employees = employees.filter((existing) => existing.id !== employeeId);
   logs = logs.filter((log) => log.employeeId !== employeeId);
   stats = computeStats();
+  saveStore();
 
   return { employees, logs, stats };
 }
