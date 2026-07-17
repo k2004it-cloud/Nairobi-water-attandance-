@@ -1,5 +1,4 @@
 import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../types';
-import { INITIAL_EMPLOYEES, INITIAL_LOGS } from '../data';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
@@ -70,11 +69,11 @@ export async function loadAppData(): Promise<AppData> {
       stats: payload.stats ?? computeStats(employees, logs)
     };
   } catch (error) {
-    console.warn('Falling back to local seed data because API was unavailable:', error);
+    console.warn('Falling back to empty app data because API was unavailable:', error);
     return {
-      employees: [...INITIAL_EMPLOYEES],
-      logs: [...INITIAL_LOGS],
-      stats: computeStats(INITIAL_EMPLOYEES, INITIAL_LOGS)
+      employees: [],
+      logs: [],
+      stats: DEFAULT_STATS
     };
   }
 }

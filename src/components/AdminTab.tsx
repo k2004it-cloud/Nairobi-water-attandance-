@@ -26,6 +26,8 @@ export default function AdminTab({
 }: AdminTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All Departments');
+  const [departments, setDepartments] = useState<string[]>(DEPARTMENTS);
+  const [newDepartment, setNewDepartment] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
@@ -84,7 +86,7 @@ export default function AdminTab({
 
     setFormId(`NW-${nextNum}`);
     setFormEmail('');
-    setFormDept('Finance');
+    setFormDept(departments.length > 1 ? departments[1] : 'All Departments');
     setFormPosition('');
     setFormImageUrl('');
     setFormImagePreview('');
@@ -211,7 +213,7 @@ export default function AdminTab({
                 }}
                 className="h-11 px-3 pr-8 bg-white border border-[#c2c6d4] rounded-lg text-sm text-[#181c1c] focus:ring-2 focus:ring-[#335f9d] focus:border-[#335f9d] outline-none cursor-pointer"
               >
-                {DEPARTMENTS.map(dept => (
+                {departments.map(dept => (
                   <option key={dept} value={dept}>{dept === 'All Departments' ? 'All Depts' : dept}</option>
                 ))}
               </select>

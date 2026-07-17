@@ -17,7 +17,7 @@ import { DEPARTMENTS } from '../data';
 interface AttendanceTabProps {
   employees: Employee[];
   logs: CheckInLog[];
-  onCheckIn: (employeeId: string) => { success: boolean; status?: CheckInStatus };
+  onCheckIn: (employeeId: string) => Promise<{ success: boolean; status?: CheckInStatus }>;
   onNavigateToTab: (tab: Tab) => void;
   onShowDetail: (section: 'roster' | 'active' | 'recorded' | 'pending') => void;
   systemCheckInStatus: CheckInStatus | 'CLOSED';
@@ -127,8 +127,8 @@ export default function AttendanceTab({
     setIsLoading(true);
     setNotice(null);
 
-    window.setTimeout(() => {
-      const result = onCheckIn(selectedEmployee.id);
+    window.setTimeout(async () => {
+      const result = await onCheckIn(selectedEmployee.id);
       setIsLoading(false);
 
       if (!result.success) {

@@ -3,7 +3,7 @@ import {
   setAdminPassword,
   createResetToken,
   resetPasswordWithToken
-} from './dataStore';
+} from './dataStore.js';
 
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;

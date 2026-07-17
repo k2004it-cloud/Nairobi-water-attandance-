@@ -1,4 +1,4 @@
-import { checkIn } from './dataStore';
+import { checkIn } from './dataStore.js';
 
 export default function handler(req: any, res: any) {
   if (req.method !== 'POST') {

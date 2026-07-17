@@ -1,41 +1,8 @@
 import { Employee, CheckInLog } from './types';
 
-export const DEPARTMENTS = [
-  'All Departments',
-  'Finance',
-  'Human Resources',
-  'Engineering',
-  'Operations',
-  'Customer Service',
-  'Infrastructure',
-  'Billing & Revenue',
-  'Water Quality',
-  'IT Support',
-  'Logistics',
-  'Maintenance'
-];
-
-export const INITIAL_EMPLOYEES: Employee[] = [
-  {
-    id: 'NW-1045',
-    name: 'Jameson Wakari',
-    email: 'jameson.wakari@nairobiwater.co.ke',
-    department: 'Finance',
-    position: 'Account',
-    status: 'Active',
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBZo-hxQN8wNdgTHoMJDWm9lAyYzt9gn0U4QgQ3DaAeztIRP9ZuoN4-9MR5bfCEKlrvY8l_Ysd2rBhhKCkXIMlNkw_AVV2OubwI91Y7QFyGGX0QK6EkbRli3SG2fdZU3CFPBac_weVScx49eN7WqOULy6mx4JtAq0O76pwkIDPU4N8l0W-Cz6mm2sZNqTsUm82KwRkJ0oU35Ji71aGNRoBSOoZpG7qZPzM4kiTWgis6W36ME57DFnmLfBgZThVZI5XFodimRviTeDqK',
-    verified: true
-  },
-  {
-    id: 'NW-4012',
-    name: 'Sarah Odhiambo',
-    email: 'sarah.o@nairobiwater.co.ke',
-    department: 'Customer Service',
-    position: 'Systems Engineer',
-    status: 'Active',
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDMDH0w9Og2CFX6aurHf2LOVG46wxVRBpY68HNICCro9EJoHNp4ywx2U9Y6QdEXvVaSiF-PVboXriYteZdxNDiv8N1vMy-BFQl4DyvJdnqS4ONQ2PVUBvmauTMlHO2Y8kX-ByzzDH-ipN1tJGIrd4n4XvmsjisqPE2fV77sBfJ7dSQwZy2bArpMdefdr_b-R9cKxX6zD2xesAG7eeu9dCJYVmLSk0tZ3ejPZLRovarhQQUIdHzy1SOBbQ-h67kUIb__5NrhM-KBZR-S',
-    verified: true
-  },
+export const DEPARTMENTS = ['All Departments'];
+export const INITIAL_EMPLOYEES: Employee[] = [];
+export const INITIAL_LOGS: CheckInLog[] = [];
   {
     id: 'NW-3988',
     name: 'John Kamau',

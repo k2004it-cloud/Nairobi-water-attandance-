@@ -1,4 +1,4 @@
-import { addEmployee, editEmployee, deleteEmployee } from './dataStore';
+import { addEmployee, editEmployee, deleteEmployee } from './dataStore.js';
 
 export default function handler(req: any, res: any) {
   if (req.method === 'POST') {
