@@ -52,11 +52,10 @@ const AVATAR_BG_COLORS = [
 ];
 
 const NAV_ITEMS: { id: Tab; label: string; Icon: LucideIcon }[] = [
-  { id: 'attendance', label: 'Attendance', Icon: ClipboardList },
-  { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'admin', label: 'Admin', Icon: ShieldCheck },
-  { id: 'reports', label: 'Reports', Icon: FileText }
+  { id: 'admin', label: 'Admin', Icon: ShieldCheck }
 ];
+
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local';
 
 const DEFAULT_APP_DATA = {
   employees: [] as Employee[],
@@ -66,14 +65,12 @@ const DEFAULT_APP_DATA = {
 
 function getSystemCheckInStatus(date: Date): AttendanceWindowStatus {
   const minutes = date.getHours() * 60 + date.getMinutes();
-  const openStart = 7 * 60;
-  const onTimeCutoff = 8 * 60 + 20;
-  const graceCutoff = 8 * 60 + 40;
-  const closeAt = 9 * 60;
+  const openStart = 6 * 60; // 06:00
+  const onTimeCutoff = 8 * 60; // 08:00 inclusive
+  const closeAt = 16 * 60; // 16:00 (4 PM)
 
   if (minutes < openStart || minutes > closeAt) return 'CLOSED';
   if (minutes <= onTimeCutoff) return 'ON TIME';
-  if (minutes <= graceCutoff) return 'GRACE PERIOD';
   return 'LATE';
 }
 
@@ -403,32 +400,11 @@ export default function App() {
 
           <div className="ml-auto flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-3">
-              {isReceptionPage ? (
-                <button
-                  type="button"
-                  onClick={() => navigateToPath('/reception')}
-                  className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
-                >
-                  Reception
-                </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => navigateToPath('/reception')}
-                    className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-white/20"
-                  >
-                    Reception
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigateToPath('/admin')}
-                    className="rounded-2xl border border-white/20 bg-blue-600 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-blue-500"
-                  >
-                    Admin
-                  </button>
-                </>
-              )}
+              <div className="hidden sm:flex items-center gap-3">
+              <span className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                Admin
+              </span>
+            </div>
             </div>
             <div className="relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-slate-950/80 via-slate-900/75 to-slate-800/80 px-4 py-3 text-right shadow-[0_30px_80px_-34px_rgba(15,23,42,0.7)] backdrop-blur-xl sm:px-5 sm:py-4">
               <div className="absolute -right-6 top-1 h-24 w-24 rounded-full bg-cyan-400/10 blur-3xl"></div>

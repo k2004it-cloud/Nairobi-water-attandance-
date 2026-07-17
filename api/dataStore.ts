@@ -1,8 +1,7 @@
-import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../src/types';
-import { INITIAL_EMPLOYEES, INITIAL_LOGS } from '../src/data';
+import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../src/types.js';
 
-let employees: Employee[] = [...INITIAL_EMPLOYEES];
-let logs: CheckInLog[] = [...INITIAL_LOGS];
+let employees: Employee[] = [];
+let logs: CheckInLog[] = [];
 let stats: DashboardStats = computeStats();
 // Simple in-memory admin record for prototype purposes
 let admin = {
@@ -16,14 +15,12 @@ const resetTokens: Record<string, { email: string; expires: number }> = {};
 
 function getSystemCheckInStatus(date: Date): CheckInStatus | 'CLOSED' {
   const minutes = date.getHours() * 60 + date.getMinutes();
-  const openStart = 7 * 60;
-  const onTimeCutoff = 8 * 60 + 20;
-  const graceCutoff = 8 * 60 + 40;
-  const closeAt = 9 * 60;
+  const openStart = 6 * 60; // 06:00
+  const onTimeCutoff = 8 * 60; // 08:00 inclusive
+  const closeAt = 16 * 60; // 16:00 (4 PM)
 
   if (minutes < openStart || minutes > closeAt) return 'CLOSED';
   if (minutes <= onTimeCutoff) return 'ON TIME';
-  if (minutes <= graceCutoff) return 'GRACE PERIOD';
   return 'LATE';
 }
 
@@ -44,16 +41,8 @@ function computeStats(): DashboardStats {
   };
 }
 
-function resetStore() {
-  employees = [...INITIAL_EMPLOYEES];
-  logs = [...INITIAL_LOGS];
-  stats = computeStats();
-}
-
 function ensureStore() {
-  if (employees.length === 0 && logs.length === 0) {
-    resetStore();
-  }
+  // Keep the store empty by default; no seeded test data.
 }
 
 export function getAppData() {
