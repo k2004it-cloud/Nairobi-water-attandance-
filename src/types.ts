@@ -19,11 +19,13 @@ export interface CheckInLog {
   employeeId: string;
   employeeName: string;
   department: string;
+  position?: string;
   checkInTime: string; // e.g. "08:12 AM" or exact ISO string
   status: CheckInStatus;
   avatarInitials: string;
   avatarBg: string; // Tailwind class like bg-blue-500
   imageUrl?: string;
+  remarks?: string;
 }
 
 export interface DashboardStats {

@@ -115,12 +115,26 @@ body {
 }
 
 @media print {
+  html,
   body {
     background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
   }
 
   .no-print {
     display: none !important;
+  }
+
+  .app-background,
+  .app-background::before,
+  .glass-panel,
+  .shadow-card,
+  .shadow-soft {
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   .print-header {
@@ -169,12 +183,60 @@ body {
     box-shadow: none !important;
     border-radius: 0 !important;
     background: #ffffff !important;
+    min-height: auto !important;
   }
 
   .report-sheet .logo-tile {
     background: #ffffff !important;
     box-shadow: none !important;
-    border-color: rgba(0, 63, 135, 0.12) !important;
+    border-color: rgba(0, 63, 135, 0.18) !important;
+  }
+
+  .report-header {
+    margin-bottom: 0 !important;
+    border-bottom-width: 1px !important;
+    border-color: rgba(15, 23, 42, 0.18) !important;
+  }
+
+  .report-table th,
+  .report-table td {
+    border-color: #e2e8f0 !important;
+  }
+
+  .report-table th {
+    background: #f7f9fb !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
+  }
+
+  .report-table td {
+    padding: 0.85rem !important;
+  }
+
+  .report-table tbody tr:hover {
+    background: #f3f6f9 !important;
+  }
+
+  .report-footer {
+    page-break-inside: avoid;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 14mm 12mm 14mm 12mm;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .report-sheet,
+  .print-header,
+  .report-table,
+  .report-sheet .logo-tile {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   .report-table {

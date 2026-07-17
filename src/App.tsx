@@ -706,27 +706,45 @@ export default function App() {
             </button>
           </>
         ) : (
-          NAV_ITEMS.map(({ id, label, Icon }) => {
-            const isActive = activeTab === id;
-
-            return (
+          <>
+            {isAdminAuthenticated && (
               <button
-                key={id}
                 type="button"
-                onClick={() => setActiveTab(id)}
-                aria-current={isActive ? 'page' : undefined}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${isActive
+                onClick={() => setActiveTab('reports')}
+                aria-current={activeTab === 'reports' ? 'page' : undefined}
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${activeTab === 'reports'
                   ? 'bg-[#0056b3] text-white font-bold shadow-sm'
                   : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
                   }`}
               >
-                <Icon className="w-5 h-5" />
+                <FileText className="w-5 h-5" />
                 <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
-                  {label}
+                  Reports
                 </span>
               </button>
-            );
-          })
+            )}
+            {NAV_ITEMS.map(({ id, label, Icon }) => {
+              const isActive = activeTab === id;
+
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveTab(id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${isActive
+                    ? 'bg-[#0056b3] text-white font-bold shadow-sm'
+                    : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
+                    }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </>
         )}
       </nav>
     </div>
