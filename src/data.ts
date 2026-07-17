@@ -1,8 +1,7 @@
 import { Employee, CheckInLog } from './types';
 
 export const DEPARTMENTS = ['All Departments'];
-export const INITIAL_EMPLOYEES: Employee[] = [];
-export const INITIAL_LOGS: CheckInLog[] = [];
+export const INITIAL_EMPLOYEES: Employee[] = [
   {
     id: 'NW-3988',
     name: 'John Kamau',
