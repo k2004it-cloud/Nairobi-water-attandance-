@@ -431,16 +431,6 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-        {isAdminPage && (
-          <div className="print-only">
-            <ReportsTab
-              employees={employees}
-              logs={logs}
-              stats={stats}
-            />
-          </div>
-        )}
-
         <div className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 py-6 pb-28 sm:px-6 sm:py-8">
           {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection === null && (
             <AttendanceTab
@@ -464,7 +454,7 @@ export default function App() {
             />
           )}
 
-          {(activeTab === 'reports' && (isAdminPage || isReceptionPage)) && (
+          {activeTab === 'reports' && isReceptionPage && (
             <ReportsTab
               employees={employees}
               logs={logs}
