@@ -40,13 +40,15 @@ interface DashboardTabProps {
   logs: CheckInLog[];
   stats: DashboardStats;
   onNavigateToTab: (tab: Tab) => void;
+  onShowDetail: (section: 'roster' | 'active' | 'recorded' | 'pending') => void;
 }
 
 export default function DashboardTab({
   employees,
   logs,
   stats,
-  onNavigateToTab
+  onNavigateToTab,
+  onShowDetail
 }: DashboardTabProps) {
   const [trendDay, setTrendDay] = useState<TrendDay>('Today');
 
@@ -60,7 +62,11 @@ export default function DashboardTab({
       {/* Main Stats Overview Row */}
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Total Employees */}
-        <div className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow">
+        <button
+          type="button"
+          onClick={() => onShowDetail('roster')}
+          className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow text-left"
+        >
           <div className="flex justify-between items-start mb-3">
             <span className="p-2 bg-[#d7e2ff] text-[#003f87] rounded-lg">
               <Users className="w-5 h-5" />
@@ -69,10 +75,14 @@ export default function DashboardTab({
           </div>
           <p className="text-2xl font-black text-[#181c1c] tracking-tight">{stats.totalEmployees}</p>
           <h3 className="text-[#424752] text-xs font-semibold mt-1">Total Employees</h3>
-        </div>
+        </button>
 
         {/* Checked In */}
-        <div className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow">
+        <button
+          type="button"
+          onClick={() => onShowDetail('recorded')}
+          className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow text-left"
+        >
           <div className="flex justify-between items-start mb-3">
             <span className="p-2 bg-[#d6e3ff] text-[#335f9d] rounded-lg">
               <UserCheck className="w-5 h-5" />
@@ -81,10 +91,14 @@ export default function DashboardTab({
           </div>
           <p className="text-2xl font-black text-[#181c1c] tracking-tight">{stats.checkedIn}</p>
           <h3 className="text-[#424752] text-xs font-semibold mt-1">Checked In</h3>
-        </div>
+        </button>
 
         {/* On Time */}
-        <div className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow">
+        <button
+          type="button"
+          onClick={() => onShowDetail('active')}
+          className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow text-left"
+        >
           <div className="flex justify-between items-start mb-3">
             <span className="p-2 bg-green-50 text-green-700 rounded-lg">
               <Timer className="w-5 h-5" />
@@ -93,10 +107,14 @@ export default function DashboardTab({
           </div>
           <p className="text-2xl font-black text-green-700 tracking-tight">{stats.onTime}</p>
           <h3 className="text-[#424752] text-xs font-semibold mt-1">Punctual Staff</h3>
-        </div>
+        </button>
 
         {/* Grace Period */}
-        <div className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow">
+        <button
+          type="button"
+          onClick={() => onShowDetail('pending')}
+          className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow text-left"
+        >
           <div className="flex justify-between items-start mb-3">
             <span className="p-2 bg-amber-50 text-amber-600 rounded-lg">
               <Hourglass className="w-5 h-5" />
@@ -105,10 +123,14 @@ export default function DashboardTab({
           </div>
           <p className="text-2xl font-black text-amber-600 tracking-tight">{stats.gracePeriod}</p>
           <h3 className="text-[#424752] text-xs font-semibold mt-1">Grace Period</h3>
-        </div>
+        </button>
 
         {/* Late arrivals */}
-        <div className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow">
+        <button
+          type="button"
+          onClick={() => onShowDetail('recorded')}
+          className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow text-left"
+        >
           <div className="flex justify-between items-start mb-3">
             <span className="p-2 bg-red-50 text-red-600 rounded-lg">
               <AlertTriangle className="w-5 h-5" />
@@ -117,10 +139,14 @@ export default function DashboardTab({
           </div>
           <p className="text-2xl font-black text-[#ba1a1a] tracking-tight">{stats.lateArrivals}</p>
           <h3 className="text-[#424752] text-xs font-semibold mt-1">Late Arrivals</h3>
-        </div>
+        </button>
 
         {/* Not checked in (Unaccounted) */}
-        <div className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow">
+        <button
+          type="button"
+          onClick={() => onShowDetail('pending')}
+          className="bg-white p-5 rounded-xl border border-[#e1e4e8] shadow-sm hover:shadow-md transition-shadow text-left"
+        >
           <div className="flex justify-between items-start mb-3">
             <span className="p-2 bg-gray-50 text-gray-500 rounded-lg">
               <UserX className="w-5 h-5" />
@@ -129,7 +155,7 @@ export default function DashboardTab({
           </div>
           <p className="text-2xl font-black text-[#727784] tracking-tight">{stats.unaccounted}</p>
           <h3 className="text-[#424752] text-xs font-semibold mt-1">Unaccounted</h3>
-        </div>
+        </button>
       </section>
 
       {/* Visual Analytics Row */}

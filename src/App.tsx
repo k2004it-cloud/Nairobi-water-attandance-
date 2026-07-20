@@ -154,6 +154,7 @@ export default function App() {
 
   const handleShowDetail = (section: 'roster' | 'active' | 'recorded' | 'pending') => {
     setDetailSection(section);
+    setActiveTab('attendance');
   };
   const handleCloseDetail = () => {
     setDetailSection(null);
@@ -648,6 +649,7 @@ export default function App() {
                 logs={logs}
                 stats={stats}
                 onNavigateToTab={setActiveTab}
+                onShowDetail={handleShowDetail}
               />
             )}
 
