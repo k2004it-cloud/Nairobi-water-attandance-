@@ -3,6 +3,27 @@ import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../typ
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 const LOCAL_STORAGE_KEY = 'nairobi_water_attendance_data';
 
+export type AppData = {
+  employees: Employee[];
+  logs: CheckInLog[];
+  stats: DashboardStats;
+};
+
+const DEFAULT_STATS: DashboardStats = {
+  totalEmployees: 0,
+  checkedIn: 0,
+  onTime: 0,
+  gracePeriod: 0,
+  lateArrivals: 0,
+  unaccounted: 0
+};
+
+const DEFAULT_APP_DATA: AppData = {
+  employees: [],
+  logs: [],
+  stats: DEFAULT_STATS
+};
+
 function loadLocalAppData(): AppData | null {
   if (typeof window === 'undefined') return null;
 
@@ -65,21 +86,6 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
-export type AppData = {
-  employees: Employee[];
-  logs: CheckInLog[];
-  stats: DashboardStats;
-};
-
-const DEFAULT_STATS: DashboardStats = {
-  totalEmployees: 0,
-  checkedIn: 0,
-  onTime: 0,
-  gracePeriod: 0,
-  lateArrivals: 0,
-  unaccounted: 0
-};
-
 export async function loadAppData(): Promise<AppData> {
   const localData = loadLocalAppData();
 
@@ -109,11 +115,7 @@ export async function loadAppData(): Promise<AppData> {
     saveLocalAppData(appData);
     return appData;
   } catch (error) {
-    if (localData) {
-      return localData;
-    }
-
-    return DEFAULT_APP_DATA;
+    return localData ?? DEFAULT_APP_DATA;
   }
 }
 

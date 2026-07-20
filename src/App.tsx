@@ -373,7 +373,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden app-background flex flex-col selection:bg-[#0B5ED7]/15">
+    <div className={`print-scope relative min-h-screen overflow-hidden app-background flex flex-col selection:bg-[#0B5ED7]/15 ${isAdminPage && activeTab !== 'reports' ? 'admin-print-mode' : ''}`}>
       {/* Print-only header: visible when printing, hidden on screen */}
       <div className="pointer-events-none fixed inset-x-0 top-0 h-64 bg-[linear-gradient(135deg,rgba(0,86,179,0.08),rgba(12,164,255,0.04),rgba(255,255,255,0.45))] print:hidden" />
       {/* Top Application Header (Fixed for clean navigation) */}
@@ -431,38 +431,49 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <div className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 py-6 pb-28 sm:px-6 sm:py-8">
-        {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection === null && (
-          <AttendanceTab
-            employees={employees}
-            logs={logs}
-            onCheckIn={handleCheckIn}
-            onNavigateToTab={setActiveTab}
-            onShowDetail={handleShowDetail}
-            systemCheckInStatus={systemCheckInStatus}
-            isCheckInClosed={isCheckInClosed}
-          />
+        {isAdminPage && (
+          <div className="print-only">
+            <ReportsTab
+              employees={employees}
+              logs={logs}
+              stats={stats}
+            />
+          </div>
         )}
 
-        {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection !== null && (
-          <AttendanceDetailPage
-            section={detailSection}
-            employees={employees}
-            logs={logs}
-            checkedInIds={checkedInIds}
-            onBack={handleCloseDetail}
-          />
-        )}
+        <div className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 py-6 pb-28 sm:px-6 sm:py-8">
+          {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection === null && (
+            <AttendanceTab
+              employees={employees}
+              logs={logs}
+              onCheckIn={handleCheckIn}
+              onNavigateToTab={setActiveTab}
+              onShowDetail={handleShowDetail}
+              systemCheckInStatus={systemCheckInStatus}
+              isCheckInClosed={isCheckInClosed}
+            />
+          )}
 
-        {(activeTab === 'reports' && (isAdminPage || isReceptionPage)) && (
-          <ReportsTab
-            logs={logs}
-            stats={stats}
-          />
-        )}
+          {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection !== null && (
+            <AttendanceDetailPage
+              section={detailSection}
+              employees={employees}
+              logs={logs}
+              checkedInIds={checkedInIds}
+              onBack={handleCloseDetail}
+            />
+          )}
 
-        {isAdminPage && !isAdminAuthenticated && (
-          <div className="relative max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          {(activeTab === 'reports' && (isAdminPage || isReceptionPage)) && (
+            <ReportsTab
+              employees={employees}
+              logs={logs}
+              stats={stats}
+            />
+          )}
+
+          {isAdminPage && !isAdminAuthenticated && (
+            <div className="no-print relative max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             {adminLoading && (
               <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl">
                 <div className="flex flex-col items-center gap-4">
@@ -587,7 +598,7 @@ export default function App() {
 
         {isAdminPage && isAdminAuthenticated && (
           <>
-            <div className="mb-6 flex items-center justify-end gap-3">
+            <div className="no-print mb-6 flex items-center justify-end gap-3">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -607,7 +618,7 @@ export default function App() {
             </div>
 
             {showChangeForm && (
-              <div className="max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
+              <div className="no-print max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
                 <h3 className="text-lg font-bold">Change admin password</h3>
                 <p className="mt-2 text-sm text-slate-600">Provide your current password and a new password to update.</p>
                 <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">

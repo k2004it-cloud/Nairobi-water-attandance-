@@ -140,38 +140,37 @@ body {
   .print-header {
     display: block !important;
   }
+}
 
-  .print-summary-only {
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block !important;
+    visibility: visible !important;
   }
 
-  .print-summary-only-card {
-    background: #f8fafc;
-    border: 1px solid #d1d5db;
-    border-radius: 1rem;
-    padding: 1rem;
+  .print-scope > * {
+    display: none !important;
   }
 
-  .print-summary-only-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: #475569;
-    margin-bottom: 0.5rem;
+  .print-scope > .print-only {
+    display: block !important;
   }
 
-  .print-summary-only-value {
-    font-size: 1.75rem;
-    font-weight: 800;
-    color: #0f172a;
+  .print-scope .no-print {
+    display: none !important;
   }
 
-  .app-background {
-    padding-top: 0;
+  body > *:not(#root) {
+    display: none !important;
+  }
+
+  #root,
+  .print-scope {
+    display: block !important;
   }
 
   .report-sheet {
@@ -186,12 +185,6 @@ body {
     min-height: auto !important;
   }
 
-  .report-sheet .logo-tile {
-    background: #ffffff !important;
-    box-shadow: none !important;
-    border-color: rgba(0, 63, 135, 0.18) !important;
-  }
-
   .report-header {
     margin-bottom: 0 !important;
     border-bottom-width: 1px !important;
@@ -201,6 +194,8 @@ body {
   .report-table th,
   .report-table td {
     border-color: #e2e8f0 !important;
+    page-break-inside: avoid;
+    page-break-after: auto;
   }
 
   .report-table th {
@@ -226,15 +221,10 @@ body {
     margin: 14mm 12mm 14mm 12mm;
   }
 
-  body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
+  body,
   .report-sheet,
   .print-header,
-  .report-table,
-  .report-sheet .logo-tile {
+  .report-table {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -257,41 +247,10 @@ body {
     page-break-inside: avoid;
     page-break-after: auto;
   }
-
-  .report-table th,
-  .report-table td {
-    page-break-inside: avoid;
-    page-break-after: auto;
-  }
-
-  .report-sheet {
-    width: 100% !important;
-    max-width: none !important;
-    margin: 0 !important;
-    padding: 24px !important;
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    background: #ffffff !important;
-    min-height: auto !important;
-  }
-
-  .print-header,
-  .report-sheet,
-  .report-table,
-  .report-sheet .logo-tile {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
 }
 
 .report-sheet {
   background: radial-gradient(circle at top left, rgba(2, 77, 255, 0.06), transparent 34%);
-}
-
-.report-sheet .logo-tile {
-  border-radius: 1.25rem;
-  box-shadow: 0 14px 40px -28px rgba(3, 45, 109, 0.35);
 }
 
 .report-sheet .report-table thead tr {
@@ -305,13 +264,6 @@ body {
 .report-sheet .report-table td,
 .report-sheet .report-table th {
   padding: 1rem 0.95rem;
-}
-
-/* print logo tile appearance */
-.logo-tile {
-  background: #e6efff;
-  box-shadow: 0 6px 18px -10px rgba(15,23,42,0.12);
-  border: 1px solid rgba(0,0,0,0.04);
 }
 
 .loader-ring {

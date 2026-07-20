@@ -1,6 +1,8 @@
 import React from 'react';
 
 interface ReportSummaryProps {
+  reportType: string;
+  reportDate: string;
   totalStaff: number;
   checkedIn: number;
   lateArrivals: number;
@@ -8,54 +10,50 @@ interface ReportSummaryProps {
   attendancePercentage: string;
 }
 
-export function ReportSummary({ totalStaff, checkedIn, lateArrivals, absent, attendancePercentage }: ReportSummaryProps) {
+export function ReportSummary({ reportType, reportDate, totalStaff, checkedIn, lateArrivals, absent, attendancePercentage }: ReportSummaryProps) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-      <div className="grid gap-3 rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-[#0f172a] font-bold">Report Details</div>
-        <div className="grid gap-2 text-sm text-slate-600">
+    <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+      <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 font-semibold mb-4">Report details</div>
+        <dl className="grid gap-3 text-sm text-slate-700">
           <div className="flex justify-between gap-4">
-            <span className="font-semibold text-slate-800">Report Type</span>
-            <span>Daily Check-In Report</span>
+            <dt className="font-semibold text-slate-900">Report</dt>
+            <dd>{reportType}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="font-semibold text-slate-800">Date</span>
-            <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <dt className="font-semibold text-slate-900">Date</dt>
+            <dd>{reportDate}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="font-semibold text-slate-800">Department</span>
-            <span>All Departments</span>
+            <dt className="font-semibold text-slate-900">Department</dt>
+            <dd>All Departments</dd>
           </div>
-          <div className="flex justify-between gap-4">
-            <span className="font-semibold text-slate-800">Location</span>
-            <span>Head Office - Westlands</span>
-          </div>
-        </div>
+        </dl>
       </div>
-      <div className="grid gap-3 rounded-[1.25rem] border border-slate-200 bg-[#f8fbff] p-5 shadow-sm">
-        <div className="text-[11px] uppercase tracking-[0.22em] text-[#0f172a] font-bold">Summary</div>
-        <div className="grid gap-3 text-sm text-slate-700">
+      <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-6 shadow-sm">
+        <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500 font-semibold mb-4">Summary</div>
+        <dl className="grid gap-3 text-sm text-slate-700">
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500">Total Staff</span>
-            <span className="font-semibold text-slate-900">{totalStaff}</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-500">Checked In</span>
-            <span className="font-semibold text-slate-900">{checkedIn}</span>
+            <dt>Total Staff</dt>
+            <dd className="font-semibold text-slate-900">{totalStaff}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500">Late Arrivals</span>
-            <span className="font-semibold text-slate-900">{lateArrivals}</span>
+            <dt>Checked In</dt>
+            <dd className="font-semibold text-slate-900">{checkedIn}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500">Absent</span>
-            <span className="font-semibold text-slate-900">{absent}</span>
+            <dt>Late Arrivals</dt>
+            <dd className="font-semibold text-slate-900">{lateArrivals}</dd>
           </div>
-          <div className="flex justify-between gap-4 pt-3 border-t border-slate-200">
-            <span className="text-slate-500">Attendance %</span>
-            <span className="text-[#0f172a] font-bold">{attendancePercentage}</span>
+          <div className="flex justify-between gap-4">
+            <dt>Absent</dt>
+            <dd className="font-semibold text-slate-900">{absent}</dd>
           </div>
-        </div>
+          <div className="flex justify-between gap-4 pt-4 border-t border-slate-200">
+            <dt className="font-semibold text-slate-900">Attendance %</dt>
+            <dd className="font-bold text-slate-900">{attendancePercentage}</dd>
+          </div>
+        </dl>
       </div>
     </div>
   );

@@ -4,9 +4,6 @@ import type { CheckInLog } from '../../types';
 
 interface AttendanceTableProps {
   logs: CheckInLog[];
-  page: number;
-  pageSize: number;
-  onPageChange: (nextPage: number) => void;
 }
 
 const headers = [
@@ -30,7 +27,7 @@ function calculateLateMinutes(log: CheckInLog) {
   if (!log.checkInTime) return '-';
   const [time, period] = log.checkInTime.split(' ');
   const [hours, minutes] = time.split(':').map(Number);
-  let totalMinutes = hours % 12 * 60 + minutes;
+  let totalMinutes = (hours % 12) * 60 + minutes;
   if (period === 'PM') totalMinutes += 12 * 60;
   const expected = 8 * 60;
   const diff = totalMinutes - expected;
@@ -43,10 +40,8 @@ function getStatusValue(status: string) {
   return 'ABSENT';
 }
 
-export function AttendanceTable({ logs, page, pageSize, onPageChange }: AttendanceTableProps) {
-  const start = (page - 1) * pageSize;
-  const visibleLogs = logs.slice(start, start + pageSize);
-  const totalPages = Math.max(1, Math.ceil(logs.length / pageSize));
+export function AttendanceTable({ logs }: AttendanceTableProps) {
+  const visibleLogs = logs;
 
   return (
     <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-sm">
@@ -74,12 +69,12 @@ export function AttendanceTable({ logs, page, pageSize, onPageChange }: Attendan
             ) : (
               visibleLogs.map((log, index) => (
                 <tr key={log.id} className={index % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                  <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{start + index + 1}</td>
+                  <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{index + 1}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{log.employeeId}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm font-semibold text-slate-900">{log.employeeName}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{log.position || 'Employee'}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{log.department}</td>
-                  <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{log.checkInTime}</td>
+                  <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{log.checkInTime || '-'}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700 print:hidden">{formatExpectedTime()}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700 print:hidden">{calculateLateMinutes(log)}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700 print:hidden">
@@ -94,25 +89,6 @@ export function AttendanceTable({ logs, page, pageSize, onPageChange }: Attendan
       </div>
       <div className="no-print flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600">Showing {visibleLogs.length} of {logs.length} records</p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={page === 1}
-            onClick={() => onPageChange(page - 1)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-100"
-          >
-            Previous
-          </button>
-          <span className="text-sm text-slate-700">Page {page} of {totalPages}</span>
-          <button
-            type="button"
-            disabled={page === totalPages}
-            onClick={() => onPageChange(page + 1)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-40 hover:bg-slate-100"
-          >
-            Next
-          </button>
-        </div>
       </div>
     </div>
   );

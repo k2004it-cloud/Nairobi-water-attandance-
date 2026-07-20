@@ -15,7 +15,7 @@ export function PrintToolbar({ onPrint, onDownloadPdf, onExportExcel, onExportCs
     'inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50';
 
   return (
-    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <div className="no-print grid gap-3 md:grid-cols-3 xl:grid-cols-6">
       <button type="button" onClick={onPrint} className={buttonClass}>
         <Printer className="h-4 w-4" />
         Print Report
