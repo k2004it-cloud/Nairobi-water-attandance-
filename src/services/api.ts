@@ -67,6 +67,22 @@ function computeStats(employees: Employee[], logs: CheckInLog[]): DashboardStats
   };
 }
 
+function mergeAppData(primary: AppData, fallback: AppData): AppData {
+  const employeeMap = new Map(primary.employees.map((employee) => [employee.id, employee]));
+  for (const employee of fallback.employees) {
+    employeeMap.set(employee.id, employee);
+  }
+
+  const logMap = new Map(primary.logs.map((log) => [log.id, log]));
+  for (const log of fallback.logs) {
+    logMap.set(log.id, log);
+  }
+
+  const employees = Array.from(employeeMap.values());
+  const logs = Array.from(logMap.values());
+  return createAppData(employees, logs);
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
@@ -97,23 +113,20 @@ export async function loadAppData(): Promise<AppData> {
     const payload = await parseResponse<Partial<AppData>>(response);
     const employees = Array.isArray(payload.employees) ? payload.employees : [];
     const logs = Array.isArray(payload.logs) ? payload.logs : [];
-    const appData = {
+    const remoteData: AppData = {
       employees,
       logs,
       stats: payload.stats ?? computeStats(employees, logs)
     };
 
-    if (employees.length || logs.length) {
-      saveLocalAppData(appData);
-      return appData;
-    }
-
     if (localData) {
-      return localData;
+      const merged = mergeAppData(remoteData, localData);
+      saveLocalAppData(merged);
+      return merged;
     }
 
-    saveLocalAppData(appData);
-    return appData;
+    saveLocalAppData(remoteData);
+    return remoteData;
   } catch (error) {
     return localData ?? DEFAULT_APP_DATA;
   }
