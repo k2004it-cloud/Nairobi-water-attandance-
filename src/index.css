@@ -153,10 +153,6 @@ body {
   }
 
   .print-scope > * {
-    display: none !important;
-  }
-
-  .print-scope > .print-only {
     display: block !important;
   }
 
