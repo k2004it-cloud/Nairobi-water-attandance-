@@ -1,10 +1,10 @@
 import { addEmployee, editEmployee, deleteEmployee } from './dataStore.js';
 
-export default function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   if (req.method === 'POST') {
     try {
       const employee = req.body;
-      const result = addEmployee(employee);
+      const result = await addEmployee(employee);
       res.status(200).json(result);
     } catch (error) {
       res.status(400).json({ error: (error as Error).message || 'Unable to add employee' });
@@ -15,7 +15,7 @@ export default function handler(req: any, res: any) {
   if (req.method === 'PUT') {
     try {
       const employee = req.body;
-      const result = editEmployee(employee);
+      const result = await editEmployee(employee);
       res.status(200).json(result);
     } catch (error) {
       res.status(400).json({ error: (error as Error).message || 'Unable to update employee' });
@@ -31,7 +31,7 @@ export default function handler(req: any, res: any) {
         return;
       }
 
-      const result = deleteEmployee(employeeId);
+      const result = await deleteEmployee(employeeId);
       res.status(200).json(result);
     } catch (error) {
       res.status(400).json({ error: (error as Error).message || 'Unable to delete employee' });

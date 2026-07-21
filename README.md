@@ -43,6 +43,9 @@ Recommended steps:
 
 Set the following environment variables in Vercel Project Settings → Environment Variables:
 
+- `VITE_SUPABASE_URL` — your Supabase project URL.
+- `VITE_SUPABASE_ANON_KEY` — your Supabase public anon key.
+- `SUPABASE_SERVICE_ROLE_KEY` — your Supabase service role key (server-only use).
 - `VITE_ADMIN_PASSWORD` — value: the admin password to unlock the admin area (e.g. `admin2030`).
 - `VITE_ADMIN_EMAIL` — the admin email address used for password reset requests.
 - `SMTP_HOST` — SMTP server hostname for sending reset emails.

@@ -24,6 +24,20 @@ const DEFAULT_APP_DATA: AppData = {
   stats: DEFAULT_STATS
 };
 
+function formatLateRemarks(minutesLate: number): string | undefined {
+  if (minutesLate <= 0) return undefined;
+  if (minutesLate < 60) {
+    return `${minutesLate} min${minutesLate === 1 ? '' : 's'} late`;
+  }
+
+  const hours = Math.floor(minutesLate / 60);
+  const minutes = minutesLate % 60;
+  const hourLabel = `${hours} hr${hours === 1 ? '' : 's'}`;
+  return minutes > 0
+    ? `${hourLabel} ${minutes} min${minutes === 1 ? '' : 's'} late`
+    : `${hourLabel} late`;
+}
+
 function loadLocalAppData(): AppData | null {
   if (typeof window === 'undefined') return null;
 
@@ -170,6 +184,7 @@ export async function checkInEmployee(employeeId: string): Promise<{ employees: 
       status = 'LATE';
     }
 
+    const minutesLate = Math.max(0, now.getHours() * 60 + now.getMinutes() - 8 * 60);
     const newLog: CheckInLog = {
       id: `LOG-${Date.now()}`,
       employeeId: employee.id,
@@ -181,6 +196,7 @@ export async function checkInEmployee(employeeId: string): Promise<{ employees: 
         hour12: true
       }),
       status,
+      remarks: status === 'LATE' ? formatLateRemarks(minutesLate) : undefined,
       avatarInitials: employee.name
         .trim()
         .split(/\s+/)

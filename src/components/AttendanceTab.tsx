@@ -519,6 +519,9 @@ export default function AttendanceTab({
                     <p className="mt-0.5 truncate text-xs font-medium text-[#727784]">
                       {log.department} - {log.checkInTime}
                     </p>
+                    {log.remarks && (
+                      <p className="mt-1 truncate text-xs font-semibold text-[#ba1a1a]">{log.remarks}</p>
+                    )}
                   </div>
                   <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${STATUS_BADGE_CLASSES[log.status]}`}>
                     {log.status === 'GRACE PERIOD' ? 'Grace' : log.status}

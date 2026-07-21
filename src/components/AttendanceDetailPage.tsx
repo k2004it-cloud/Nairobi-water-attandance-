@@ -72,6 +72,9 @@ export default function AttendanceDetailPage({
                 <span className="text-xs font-bold text-[#335f9d]">{log.checkInTime}</span>
               </div>
               <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#334155]">{log.status}</p>
+              {log.remarks && (
+                <p className="mt-1 text-xs text-[#7c3aed]">{log.remarks}</p>
+              )}
             </div>
           ))}
         </div>

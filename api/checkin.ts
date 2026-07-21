@@ -1,6 +1,6 @@
 import { checkIn } from './dataStore.js';
 
-export default function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -13,7 +13,7 @@ export default function handler(req: any, res: any) {
   }
 
   try {
-    const result = checkIn(employeeId);
+    const result = await checkIn(employeeId);
     res.status(200).json(result);
   } catch (error) {
     res.status(400).json({ error: (error as Error).message || 'Unable to complete check-in' });
