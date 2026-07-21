@@ -81,22 +81,6 @@ function computeStats(employees: Employee[], logs: CheckInLog[]): DashboardStats
   };
 }
 
-function mergeAppData(primary: AppData, fallback: AppData): AppData {
-  const employeeMap = new Map(primary.employees.map((employee) => [employee.id, employee]));
-  for (const employee of fallback.employees) {
-    employeeMap.set(employee.id, employee);
-  }
-
-  const logMap = new Map(primary.logs.map((log) => [log.id, log]));
-  for (const log of fallback.logs) {
-    logMap.set(log.id, log);
-  }
-
-  const employees = Array.from(employeeMap.values());
-  const logs = Array.from(logMap.values());
-  return createAppData(employees, logs);
-}
-
 async function parseResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
@@ -132,12 +116,6 @@ export async function loadAppData(): Promise<AppData> {
       logs,
       stats: payload.stats ?? computeStats(employees, logs)
     };
-
-    if (localData) {
-      const merged = mergeAppData(remoteData, localData);
-      saveLocalAppData(merged);
-      return merged;
-    }
 
     saveLocalAppData(remoteData);
     return remoteData;
