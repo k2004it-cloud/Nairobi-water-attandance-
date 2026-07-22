@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
@@ -27,6 +28,52 @@ function parseJsonBody(req: any) {
   });
 }
 
+function registerApiMiddleware(server: any) {
+  server.middlewares.use(async (req: any, res: any, next: any) => {
+    if (!req.url?.startsWith('/api/')) {
+      return next();
+    }
+
+    const [pathname] = req.url.split('?');
+    const modulePath = path.resolve(__dirname, `.${pathname}.ts`);
+    if (!fs.existsSync(modulePath)) {
+      return next();
+    }
+
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      await parseJsonBody(req);
+    }
+
+    const enhancedRes = Object.assign(res, {
+      status(code: number) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload: any) {
+        if (!this.headersSent) {
+          this.setHeader('Content-Type', 'application/json');
+        }
+        this.end(JSON.stringify(payload));
+      }
+    });
+
+    try {
+      const mod = await server.ssrLoadModule(modulePath);
+      if (mod && typeof mod.default === 'function') {
+        return mod.default(req, enhancedRes);
+      }
+    } catch (err: any) {
+      console.error('API handler error:', err);
+      enhancedRes.statusCode = 500;
+      enhancedRes.setHeader('Content-Type', 'application/json');
+      enhancedRes.end(JSON.stringify({ error: 'API handler error' }));
+      return;
+    }
+
+    next();
+  });
+}
+
 export default defineConfig(() => ({
   plugins: [
     react(),
@@ -34,49 +81,10 @@ export default defineConfig(() => ({
     {
       name: 'local-api-middleware',
       configureServer(server) {
-        server.middlewares.use(async (req: any, res, next) => {
-          if (!req.url?.startsWith('/api/')) {
-            return next();
-          }
-
-          const [pathname] = req.url.split('?');
-          const modulePath = path.resolve(__dirname, `.${pathname}.ts`);
-          if (!fs.existsSync(modulePath)) {
-            return next();
-          }
-
-          if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-            await parseJsonBody(req);
-          }
-
-          const enhancedRes = Object.assign(res, {
-            status(code: number) {
-              this.statusCode = code;
-              return this;
-            },
-            json(payload: any) {
-              if (!this.headersSent) {
-                this.setHeader('Content-Type', 'application/json');
-              }
-              this.end(JSON.stringify(payload));
-            }
-          });
-
-          try {
-            const mod = await server.ssrLoadModule(modulePath);
-            if (mod && typeof mod.default === 'function') {
-              return mod.default(req, enhancedRes);
-            }
-          } catch (err: any) {
-            console.error('API handler error:', err);
-            enhancedRes.statusCode = 500;
-            enhancedRes.setHeader('Content-Type', 'application/json');
-            enhancedRes.end(JSON.stringify({ error: 'API handler error' }));
-            return;
-          }
-
-          next();
-        });
+        registerApiMiddleware(server);
+      },
+      configurePreviewServer(server) {
+        registerApiMiddleware(server);
       }
     }
   ],

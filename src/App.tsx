@@ -65,7 +65,7 @@ const DEFAULT_APP_DATA = {
 
 function getSystemCheckInStatus(date: Date): AttendanceWindowStatus {
   const minutes = date.getHours() * 60 + date.getMinutes();
-  const openStart = 6 * 60; // 06:00
+  const openStart = 7 * 60; // 07:00
   const onTimeCutoff = 8 * 60; // 08:00 inclusive
   const closeAt = 16 * 60; // 16:00 (4 PM)
 

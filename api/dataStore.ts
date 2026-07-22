@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../src/types.js';
 import { supabaseAdmin } from './supabaseClient.js';
+import { INITIAL_EMPLOYEES, INITIAL_LOGS } from './seedData.js';
 
 const STORE_FILE = path.join(os.tmpdir(), 'attendance-store.json');
 let storeInitialized = false;
@@ -26,7 +27,7 @@ const resetTokens: Record<string, { email: string; expires: number }> = {};
 
 function getSystemCheckInStatus(date: Date): CheckInStatus | 'CLOSED' {
   const minutes = date.getHours() * 60 + date.getMinutes();
-  const openStart = 6 * 60; // 06:00
+  const openStart = 7 * 60; // 07:00
   const onTimeCutoff = 8 * 60; // 08:00 inclusive
   const closeAt = 16 * 60; // 16:00 (4 PM)
 
@@ -35,18 +36,24 @@ function getSystemCheckInStatus(date: Date): CheckInStatus | 'CLOSED' {
   return 'LATE';
 }
 
-function formatLateRemarks(minutesLate: number): string | undefined {
+function formatLateRemarks(minutesLate: number, date: Date): string | undefined {
   if (minutesLate <= 0) return undefined;
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
   if (minutesLate < 60) {
-    return `${minutesLate} min${minutesLate === 1 ? '' : 's'} late`;
+    return isWeekend ? `${minutesLate} min` : `${minutesLate} min${minutesLate === 1 ? '' : 's'} late`;
   }
 
   const hours = Math.floor(minutesLate / 60);
   const minutes = minutesLate % 60;
-  const hourLabel = `${hours} hr${hours === 1 ? '' : 's'}`;
-  return minutes > 0
-    ? `${hourLabel} ${minutes} min${minutes === 1 ? '' : 's'} late`
-    : `${hourLabel} late`;
+  const hourLabel = `${hours} hr`;
+  const minuteLabel = `${minutes} min`;
+
+  if (isWeekend) {
+    return minutes > 0 ? `${hourLabel} ${minuteLabel}` : hourLabel;
+  }
+
+  return minutes > 0 ? `${hourLabel} ${minuteLabel} late` : `${hourLabel} late`;
 }
 
 function computeStatsForData(employeesData: Employee[], logsData: CheckInLog[]): DashboardStats {
@@ -127,8 +134,8 @@ function loadStore() {
     // If loading fails, continue with an empty store.
   }
 
-  employees = [];
-  logs = [];
+  employees = INITIAL_EMPLOYEES;
+  logs = INITIAL_LOGS;
   stats = computeStats();
 }
 
@@ -147,11 +154,7 @@ function ensureStore() {
 
 export async function getAppData() {
   if (SUPABASE_ENABLED) {
-    try {
-      return await loadSupabaseData();
-    } catch (error) {
-      console.error('Supabase getAppData failed, falling back to local store:', error);
-    }
+    return await loadSupabaseData();
   }
 
   ensureStore();
@@ -243,7 +246,7 @@ export async function checkIn(employeeId: string) {
           hour12: true
         }),
         status,
-        remarks: status === 'LATE' ? formatLateRemarks(minutesLate) : undefined,
+        remarks: status === 'LATE' ? formatLateRemarks(minutesLate, now) : undefined,
         avatarInitials: employeeData.name
           .trim()
           .split(/\s+/)
@@ -268,7 +271,8 @@ export async function checkIn(employeeId: string) {
       const appData = await loadSupabaseData();
       return { ...appData, status };
     } catch (error) {
-      console.error('Supabase checkIn failed, falling back to local store:', error);
+      console.error('Supabase checkIn failed:', error);
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
 
@@ -303,7 +307,7 @@ export async function checkIn(employeeId: string) {
       hour12: true
     }),
     status,
-    remarks: status === 'LATE' ? formatLateRemarks(minutesLate) : undefined,
+    remarks: status === 'LATE' ? formatLateRemarks(minutesLate, now) : undefined,
     avatarInitials: employee.name
       .trim()
       .split(/\s+/)
@@ -341,7 +345,8 @@ export async function addEmployee(employee: Employee) {
       const appData = await loadSupabaseData();
       return { employees: appData.employees, stats: appData.stats };
     } catch (error) {
-      console.error('Supabase addEmployee failed, falling back to local store:', error);
+      console.error('Supabase addEmployee failed:', error);
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
 
@@ -395,7 +400,8 @@ export async function editEmployee(employee: Employee) {
       const appData = await loadSupabaseData();
       return { employees: appData.employees, stats: appData.stats };
     } catch (error) {
-      console.error('Supabase editEmployee failed, falling back to local store:', error);
+      console.error('Supabase editEmployee failed:', error);
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
 
@@ -439,7 +445,8 @@ export async function deleteEmployee(employeeId: string) {
       const appData = await loadSupabaseData();
       return { employees: appData.employees, logs: appData.logs, stats: appData.stats };
     } catch (error) {
-      console.error('Supabase deleteEmployee failed, falling back to local store:', error);
+      console.error('Supabase deleteEmployee failed:', error);
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
 

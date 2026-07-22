@@ -129,7 +129,7 @@ export default function AdminTab({
     setIsModalOpen(true);
   };
 
-  const handleSaveEmployee = (e: FormEvent) => {
+  const handleSaveEmployee = async (e: FormEvent) => {
     e.preventDefault();
 
     const trimmedName = formName.trim();
@@ -163,13 +163,17 @@ export default function AdminTab({
       verified: formVerified
     };
 
-    if (modalMode === 'add') {
-      onAddEmployee(payload);
-    } else {
-      onEditEmployee(payload);
+    try {
+      if (modalMode === 'add') {
+        await onAddEmployee(payload);
+      } else {
+        await onEditEmployee(payload);
+      }
+      setIsModalOpen(false);
+      setFormError('');
+    } catch (err) {
+      setFormError((err as Error).message || 'Unable to save employee.');
     }
-
-    setIsModalOpen(false);
   };
 
   const triggerDelete = (id: string) => {

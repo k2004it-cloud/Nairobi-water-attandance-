@@ -25,7 +25,8 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === 'DELETE') {
     try {
-      const employeeId = req.query?.id || req.body?.id;
+      const url = typeof req.url === 'string' ? new URL(req.url, 'http://localhost') : null;
+      const employeeId = req.body?.id || url?.searchParams.get('id');
       if (!employeeId || typeof employeeId !== 'string') {
         res.status(400).json({ error: 'Missing or invalid employee id' });
         return;

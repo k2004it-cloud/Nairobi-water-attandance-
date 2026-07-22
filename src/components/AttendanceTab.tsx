@@ -104,7 +104,7 @@ export default function AttendanceTab({
       return;
     }
     if (isCheckInClosed) {
-      setNotice({ tone: 'error', text: 'Check-in is closed after 09:00. System window has ended.' });
+      setNotice({ tone: 'error', text: 'Check-in is closed after 04:00 PM. System window has ended.' });
       return;
     }
 

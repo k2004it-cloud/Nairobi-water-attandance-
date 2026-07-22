@@ -171,7 +171,7 @@ export const INITIAL_LOGS: CheckInLog[] = [
     employeeName: 'Sarah Mutua',
     department: 'Human Resources',
     checkInTime: '08:12 AM',
-    status: 'ON TIME',
+    status: 'LATE',
     avatarInitials: 'SM',
     avatarBg: 'bg-blue-500'
   },
@@ -181,7 +181,7 @@ export const INITIAL_LOGS: CheckInLog[] = [
     employeeName: 'David Kamau',
     department: 'Human Resources',
     checkInTime: '08:05 AM',
-    status: 'ON TIME',
+    status: 'LATE',
     avatarInitials: 'DK',
     avatarBg: 'bg-orange-500'
   },
@@ -191,7 +191,7 @@ export const INITIAL_LOGS: CheckInLog[] = [
     employeeName: 'Robert Onyango',
     department: 'Logistics',
     checkInTime: '07:58 AM',
-    status: 'LATE', // Warn/late in the logs screenshot 1
+    status: 'ON TIME',
     avatarInitials: 'RO',
     avatarBg: 'bg-red-500'
   },
@@ -210,6 +210,7 @@ export const INITIAL_LOGS: CheckInLog[] = [
     employeeId: 'NW-5192',
     employeeName: 'Evans Kiprotich',
     department: 'Maintenance',
+    position: 'Plumbing Technician',
     checkInTime: '07:40 AM',
     status: 'ON TIME',
     avatarInitials: 'EK',
@@ -232,7 +233,7 @@ export const INITIAL_LOGS: CheckInLog[] = [
     employeeName: 'John Kamau',
     department: 'Maintenance',
     checkInTime: '08:12 AM',
-    status: 'GRACE PERIOD',
+    status: 'LATE',
     avatarInitials: 'JK',
     avatarBg: 'bg-amber-500',
     imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAL7alqy3Q6fC7Ae2CfEBn-yuHxv1kcgOVZxCBrIgDIKOvy7B5wNuAei0XhDoWHBEJPC-1koGYFVLMp6xaq6-VczqQwHykKIjomfZc4gYoJPnqxglmIvghBTC3vHcvNEgrts4DeraBlhCWNmNCWhTCjtmZhVyiQ2JodRZ8qsZLltoRdZdV0quam-Wd57o8M0tZ28Xt5QUbk68_3dAIVrdW5kwFZEsfhVQg8IBxMq02XdlR57wJ0cx2coJAC2PX5FYK4_HplsxghTdaW'
