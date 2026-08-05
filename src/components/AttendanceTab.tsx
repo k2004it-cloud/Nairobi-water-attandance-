@@ -462,9 +462,9 @@ export default function AttendanceTab({
         </form>
 
         {isLoading && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6">
-            <div className="w-full max-w-sm rounded-[32px] border border-white/70 bg-white/95 p-6 text-center shadow-2xl backdrop-blur-xl">
-              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full border border-blue-200 bg-blue-50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/10 px-4 py-6">
+            <div className="w-full max-w-sm rounded-[32px] border border-white/60 bg-white/90 p-6 text-center shadow-2xl backdrop-blur-xl">
+              <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full border border-blue-200 bg-blue-50/80 shadow-sm">
                 <span className="loader-ring h-16 w-16" />
               </div>
               <p className="text-xl font-black text-[#003f87]">Checking in…</p>

@@ -109,6 +109,7 @@ export default function App() {
 
   useEffect(() => {
     async function loadData() {
+      const startTime = Date.now();
       try {
         const data = await loadAppData();
         setEmployees(Array.isArray(data.employees) ? data.employees : []);
@@ -117,7 +118,13 @@ export default function App() {
       } catch (err) {
         setError((err as Error).message || 'Unable to load app data.');
       } finally {
-        setLoading(false);
+        const elapsed = Date.now() - startTime;
+        const delay = Math.max(0, 3000 - elapsed);
+        if (delay > 0) {
+          setTimeout(() => setLoading(false), delay);
+        } else {
+          setLoading(false);
+        }
       }
     }
 
@@ -142,6 +149,7 @@ export default function App() {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState<string | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
@@ -271,11 +279,10 @@ export default function App() {
     setAdminLoading(true);
     (async () => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 2500));
+        await new Promise((resolve) => setTimeout(resolve, 4000));
         const res = await adminLogin(adminPassword);
         if (res && (res as any).success) {
           setIsAdminAuthenticated(true);
-          window.localStorage.setItem('nw-admin-auth', 'true');
           setError(null);
           setAdminError(null);
         } else {
@@ -296,23 +303,25 @@ export default function App() {
       return;
     }
 
-    ensureDefaultUsers();
-    const user = authenticateUser(loginUsername, loginPassword);
-    if (!user) {
-      setLoginError('Invalid username or password.');
-      return;
-    }
+    setLoginLoading(true);
+    window.setTimeout(() => {
+      ensureDefaultUsers();
+      const user = authenticateUser(loginUsername, loginPassword);
+      if (!user) {
+        setLoginError('Invalid username or password.');
+        setLoginLoading(false);
+        return;
+      }
 
-    setCurrentUserState(user);
-    setCurrentUser(user);
-    setIsAdminAuthenticated(user.role === 'system_admin');
-    if (user.role === 'system_admin') {
-      window.localStorage.setItem('nw-admin-auth', 'true');
-    } else {
-      window.localStorage.removeItem('nw-admin-auth');
-    }
-    setPagePath('admin');
-    setActiveTab(user.role === 'it_technician' ? 'support' : user.role === 'secretary' ? 'attendance' : 'dashboard');
+      setCurrentUserState(user);
+      setIsAdminAuthenticated(user.role === 'system_admin');
+      if (!user || user.role !== 'system_admin') {
+        window.localStorage.removeItem('nw-admin-auth');
+      }
+      setPagePath('admin');
+      setActiveTab(user.role === 'it_technician' ? 'support' : user.role === 'secretary' ? 'attendance' : 'dashboard');
+      setLoginLoading(false);
+    }, 4000);
   };
 
   const handleAdminLogout = () => {
@@ -320,22 +329,49 @@ export default function App() {
     setCurrentUserState(null);
     setCurrentUser(null);
     window.localStorage.removeItem('nw-admin-auth');
+    window.localStorage.removeItem('nw-current-user');
     setError(null);
     setAdminPassword('');
     setLoginUsername('');
     setLoginPassword('');
+    setAdminError(null);
+    setLoginError(null);
   };
 
   useEffect(() => {
     ensureDefaultUsers();
-    const storedUser = getCurrentUser();
-    if (storedUser) {
-      setCurrentUserState(storedUser);
-      if (storedUser.role === 'system_admin') {
-        setIsAdminAuthenticated(true);
-      }
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('nw-admin-auth');
+      window.localStorage.removeItem('nw-current-user');
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (!isUserAuthenticated) return;
+
+    const logoutAfterInactivity = () => {
+      handleAdminLogout();
+      setLoginError('Session expired due to inactivity. Please sign in again.');
+      setAdminError('Session expired due to inactivity. Please log in again.');
+    };
+
+    let timeoutId: number;
+    const resetTimeout = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(logoutAfterInactivity, 5 * 60 * 1000);
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'click'];
+    events.forEach((eventName) => window.addEventListener(eventName, resetTimeout));
+    resetTimeout();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      events.forEach((eventName) => window.removeEventListener(eventName, resetTimeout));
+    };
+  }, [isUserAuthenticated]);
 
   // Forgot / Reset password
   const handleForgotRequest = async () => {
@@ -463,10 +499,13 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700">
-        <div className="text-center">
-          <p className="text-lg font-semibold">Loading attendance data...</p>
-          <p className="text-sm text-slate-500 mt-2">Please wait while the system initializes.</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-950/10 px-4 py-6">
+        <div className="w-full max-w-md rounded-[32px] border border-white/40 bg-white/80 p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto mb-6 h-20 w-20 rounded-full border border-blue-200 bg-blue-50/70 shadow-sm flex items-center justify-center">
+            <span className="loader-ring h-12 w-12" />
+          </div>
+          <p className="text-lg font-semibold text-slate-900">Loading attendance data...</p>
+          <p className="text-sm text-slate-600 mt-2">Please wait while the system initializes.</p>
         </div>
       </div>
     );
@@ -492,12 +531,12 @@ export default function App() {
       <header className="no-print sticky top-0 z-50 border-b border-white/20 bg-gradient-to-r from-[#003f87] via-[#0056b3] to-[#2f7fe8] text-white shadow-[0_20px_60px_-24px_rgba(0,63,135,0.7)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="relative h-20 w-20 sm:h-24 sm:w-24 flex-shrink-0 flex items-center justify-center overflow-hidden rounded-full border border-white/30 bg-white p-1 sm:p-2 shadow-2xl ring-4 ring-white/70 z-50 transition-transform duration-200 hover:scale-105">
+            <div className="relative h-16 w-16 sm:h-18 sm:w-18 flex-shrink-0 flex items-center justify-center overflow-hidden rounded-2xl border border-white/25 bg-white/90 p-1 shadow-lg">
               <img
                 src="/logo-nairobi.png"
-                alt="Nairobi Water logo"
+                alt="Logo - Nairobi Water"
                 title="Nairobi Water"
-                className="h-14 w-14 sm:h-18 sm:w-18 object-contain object-center transition-transform duration-200 will-change-transform"
+                className="h-12 w-12 sm:h-14 sm:w-14 object-contain object-center"
               />
             </div>
             <div className="min-w-0">
@@ -587,11 +626,13 @@ export default function App() {
 
           {isAdminPage && !isUserAuthenticated && (
             <div className="no-print relative max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            {adminLoading && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="login-loader-overlay-ring" />
-                  <div className="text-sm font-semibold text-slate-700">Unlocking admin area...</div>
+            {(adminLoading || loginLoading) && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-slate-950/10 px-4 py-6">
+                <div className="w-full max-w-sm rounded-[32px] border border-white/60 bg-white/90 p-6 shadow-2xl backdrop-blur-xl">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="loader-ring h-16 w-16" />
+                    <div className="text-sm font-semibold text-slate-700">{adminLoading ? 'Unlocking admin area...' : 'Signing in...'}</div>
+                  </div>
                 </div>
               </div>
             )}
@@ -623,9 +664,10 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleRoleLogin}
-                  className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
+                  disabled={loginLoading}
+                  className={`inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${loginLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
                 >
-                  Sign in
+                  {loginLoading ? 'Signing in...' : 'Sign in'}
                 </button>
                 <button
                   type="button"
