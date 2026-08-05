@@ -259,13 +259,14 @@ export async function checkIn(employeeId: string) {
       const todayStart = new Date(`${year}-${month}-${day}T00:00:00+03:00`).toISOString();
       const todayEnd = new Date(`${year}-${month}-${day}T00:00:00+03:00`);
       todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+      const todayEndStr = todayEnd.toISOString();
 
       const { data: existingLogs, error: existingError } = await adminClient
         .from(SUPABASE_CHECKINS_TABLE)
         .select('id')
         .eq('employeeId', employeeId)
         .gte('created_at', todayStart)
-        .lt('created_at', todayEnd);
+        .lt('created_at', todayEndStr);
 
       if (existingError) {
         throw existingError;
