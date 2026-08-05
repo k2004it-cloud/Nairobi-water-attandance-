@@ -119,7 +119,7 @@ export default function App() {
         setError((err as Error).message || 'Unable to load app data.');
       } finally {
         const elapsed = Date.now() - startTime;
-        const delay = Math.max(0, 3000 - elapsed);
+        const delay = Math.max(0, 2000 - elapsed);
         if (delay > 0) {
           setTimeout(() => setLoading(false), delay);
         } else {
@@ -279,7 +279,7 @@ export default function App() {
     setAdminLoading(true);
     (async () => {
       try {
-        await new Promise((resolve) => setTimeout(resolve, 4000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         const res = await adminLogin(adminPassword);
         if (res && (res as any).success) {
           setIsAdminAuthenticated(true);
@@ -321,7 +321,7 @@ export default function App() {
       setPagePath('admin');
       setActiveTab(user.role === 'it_technician' ? 'support' : user.role === 'secretary' ? 'attendance' : 'dashboard');
       setLoginLoading(false);
-    }, 4000);
+    }, 2000);
   };
 
   const handleAdminLogout = () => {
