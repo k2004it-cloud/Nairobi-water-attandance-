@@ -512,22 +512,23 @@ export default function App() {
 
           <div className="ml-auto flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-3">
-              <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-left shadow-sm backdrop-blur-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-100">{showAdminHeader ? 'Signed in' : 'Current area'}</p>
-                <p className="mt-1 text-sm font-bold text-white">{headerStatusLabel}</p>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-blue-100">{headerStatusSubLabel}</p>
-              </div>
+              <details className="group relative rounded-2xl border border-white/20 bg-white/10 px-3 py-2 shadow-sm backdrop-blur-sm">
+                <summary className="flex cursor-pointer items-center justify-between gap-3 text-left text-sm font-semibold text-white outline-none">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-100">{showAdminHeader ? 'Signed in' : 'Current area'}</p>
+                    <p className="mt-1 text-sm font-bold text-white">{headerStatusLabel}</p>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-blue-100">{headerStatusSubLabel}</span>
+                </summary>
+                <div className="mt-3 rounded-2xl border border-white/15 bg-slate-950/95 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-100">Details</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{headerStatusSubLabel}</p>
+                  {showAdminHeader && currentUser && (
+                    <p className="mt-2 text-xs text-slate-300">User: {currentUser.fullName} • {currentUser.username}</p>
+                  )}
+                </div>
+              </details>
             </div>
-            {showAdminHeader && currentUser && (
-              <button
-                type="button"
-                onClick={() => setShowProfile((value) => !value)}
-                className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition hover:opacity-95 ${currentUserRoleColor}`}
-              >
-                <BadgeCheck className="h-3.5 w-3.5" />
-                {currentUserRoleLabel}
-              </button>
-            )}
             <div className="relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-slate-950/80 via-slate-900/75 to-slate-800/80 px-4 py-3 text-right shadow-[0_30px_80px_-34px_rgba(15,23,42,0.7)] backdrop-blur-xl sm:px-5 sm:py-4">
               <div className="absolute -right-6 top-1 h-24 w-24 rounded-full bg-cyan-400/10 blur-3xl"></div>
               <div className="absolute -left-6 bottom-1 h-20 w-20 rounded-full bg-white/10 blur-3xl"></div>
