@@ -217,6 +217,9 @@ export default function App() {
     regional_manager: 'bg-[#ecfccb] text-lime-800 border-lime-200',
     it_technician: 'bg-[#fee2e2] text-red-800 border-red-200'
   }[currentUser.role] : 'bg-white/10 text-white border-white/20';
+  const showAdminHeader = isAdminPage && isUserAuthenticated;
+  const headerStatusLabel = showAdminHeader ? (currentUser ? currentUser.fullName : 'System Admin') : 'Reception Desk';
+  const headerStatusSubLabel = showAdminHeader ? currentUserRoleLabel : 'Reception';
 
   const handleShowDetail = (section: 'roster' | 'active' | 'recorded' | 'pending') => {
     setDetailSection(section);
@@ -509,19 +512,13 @@ export default function App() {
 
           <div className="ml-auto flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-3">
-              {currentUser ? (
-                <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-left shadow-sm backdrop-blur-sm">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-100">Signed in</p>
-                  <p className="mt-1 text-sm font-bold text-white">{currentUser.fullName}</p>
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-blue-100">{currentUserRoleLabel}</p>
-                </div>
-              ) : (
-                <span className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-                  Admin
-                </span>
-              )}
+              <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-left shadow-sm backdrop-blur-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-100">{showAdminHeader ? 'Signed in' : 'Current area'}</p>
+                <p className="mt-1 text-sm font-bold text-white">{headerStatusLabel}</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-blue-100">{headerStatusSubLabel}</p>
+              </div>
             </div>
-            {currentUser && (
+            {showAdminHeader && currentUser && (
               <button
                 type="button"
                 onClick={() => setShowProfile((value) => !value)}
