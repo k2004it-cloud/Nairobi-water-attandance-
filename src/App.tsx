@@ -501,8 +501,8 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950/10 px-4 py-6">
         <div className="w-full max-w-md rounded-[32px] border border-white/40 bg-white/80 p-8 text-center shadow-2xl backdrop-blur-xl">
-          <div className="mx-auto mb-6 h-20 w-20 rounded-full border border-blue-200 bg-blue-50/70 shadow-sm flex items-center justify-center">
-            <span className="loader-ring h-12 w-12" />
+          <div className="mx-auto mb-6 h-28 w-28 rounded-full border border-blue-200 bg-blue-50/70 shadow-sm flex items-center justify-center">
+            <span className="loader-ring h-20 w-20" />
           </div>
           <p className="text-lg font-semibold text-slate-900">Loading attendance data...</p>
           <p className="text-sm text-slate-600 mt-2">Please wait while the system initializes.</p>
@@ -630,7 +630,7 @@ export default function App() {
               <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-slate-950/10 px-4 py-6">
                 <div className="w-full max-w-sm rounded-[32px] border border-white/60 bg-white/90 p-6 shadow-2xl backdrop-blur-xl">
                   <div className="flex flex-col items-center gap-4">
-                    <div className="loader-ring h-16 w-16" />
+                    <div className="loader-ring h-20 w-20" />
                     <div className="text-sm font-semibold text-slate-700">{adminLoading ? 'Unlocking admin area...' : 'Signing in...'}</div>
                   </div>
                 </div>
@@ -665,9 +665,16 @@ export default function App() {
                   type="button"
                   onClick={handleRoleLogin}
                   disabled={loginLoading}
-                  className={`inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${loginLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
+                  className={`inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${loginLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
                 >
-                  {loginLoading ? 'Signing in...' : 'Sign in'}
+                  {loginLoading ? (
+                    <>
+                      <span className="loader-ring h-5 w-5" />
+                      Signing in...
+                    </>
+                  ) : (
+                    'Sign in'
+                  )}
                 </button>
                 <button
                   type="button"
@@ -695,9 +702,16 @@ export default function App() {
                   type="button"
                   onClick={handleAdminLogin}
                   disabled={adminLoading}
-                  className={`inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${adminLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600'}`}
+                  className={`inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${adminLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600'}`}
                 >
-                  {adminLoading ? 'Checking...' : 'Legacy admin'}
+                  {adminLoading ? (
+                    <>
+                      <span className="loader-ring h-5 w-5" />
+                      Checking...
+                    </>
+                  ) : (
+                    'Legacy admin'
+                  )}
                 </button>
               </div>
 

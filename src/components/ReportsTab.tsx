@@ -179,8 +179,8 @@ export default function ReportsTab({ employees, logs, stats }: ReportsTabProps) 
     return (
       <div className="flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md rounded-[32px] border border-white/60 bg-white/90 p-8 text-center shadow-2xl backdrop-blur-xl">
-          <div className="mx-auto mb-5 h-20 w-20 rounded-full border border-blue-200 bg-blue-50/80 shadow-sm flex items-center justify-center">
-            <span className="loader-ring h-12 w-12" />
+          <div className="mx-auto mb-5 h-28 w-28 rounded-full border border-blue-200 bg-blue-50/80 shadow-sm flex items-center justify-center">
+            <span className="loader-ring h-20 w-20" />
           </div>
           <p className="text-lg font-semibold text-slate-900">Loading report data…</p>
           <p className="mt-2 text-sm text-slate-600">Please wait while the report loads.</p>
