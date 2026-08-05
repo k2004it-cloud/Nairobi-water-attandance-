@@ -48,6 +48,7 @@ export default function ReportsTab({ employees, logs, stats }: ReportsTabProps) 
 
   const [loading, setLoading] = useState(!(employees || logs || stats));
   const [error, setError] = useState<string | null>(null);
+  const [showWeeklySummary, setShowWeeklySummary] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -250,19 +251,31 @@ export default function ReportsTab({ employees, logs, stats }: ReportsTabProps) 
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {weeklySummary.map((day) => (
-          <div key={day.date} className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{day.date}</p>
-            <p className="mt-3 text-2xl font-black text-slate-900">{day.checkedIn}</p>
-            <p className="text-sm text-slate-600">Checked in</p>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-              <span>Late: {day.late}</span>
-              <span>Absent: {day.absent}</span>
+      <details className="rounded-[1.5rem] border border-slate-200 bg-white shadow-sm" open={showWeeklySummary}>
+        <summary
+          className="flex cursor-pointer items-center justify-between gap-3 px-6 py-4 text-sm font-semibold text-slate-900 outline-none transition hover:bg-slate-50"
+          onClick={(event) => {
+            event.preventDefault();
+            setShowWeeklySummary((current) => !current);
+          }}
+        >
+          <span>Weekly summary</span>
+          <span className="text-slate-500">{showWeeklySummary ? 'Collapse' : 'Expand'}</span>
+        </summary>
+        <div className="grid gap-4 border-t border-slate-200 p-6 md:grid-cols-2 xl:grid-cols-4">
+          {weeklySummary.map((day) => (
+            <div key={day.date} className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{day.date}</p>
+              <p className="mt-3 text-2xl font-black text-slate-900">{day.checkedIn}</p>
+              <p className="text-sm text-slate-600">Checked in</p>
+              <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                <span>Late: {day.late}</span>
+                <span>Absent: {day.absent}</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </details>
 
       <ReportPage
         employees={reportData.employees}
