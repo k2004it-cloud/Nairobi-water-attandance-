@@ -57,10 +57,7 @@ function formatLateRemarks(minutesLate: number, date: Date): string | undefined 
 
 function computeStatsForData(employeesData: Employee[], logsData: CheckInLog[], dateKeyOverride?: string): DashboardStats {
   const dayKey = dateKeyOverride ?? getNairobiDateKey(new Date());
-  const filteredLogs = logsData.filter((log) => {
-    if (log.dateKey) return log.dateKey === dayKey;
-    return true;
-  });
+  const filteredLogs = logsData.filter((log) => log.dateKey === dayKey);
 
   const totalEmployees = employeesData.length;
   const checkedIn = filteredLogs.length;
@@ -106,7 +103,7 @@ function normalizeCheckInRow(row: Record<string, unknown> | null | undefined): C
   const createdAtValue = row.created_at;
   const createdAt = typeof createdAtValue === 'string' ? new Date(createdAtValue) : new Date();
   const normalizedStatus = String(row.status ?? 'ON TIME') as CheckInStatus;
-  const record: CheckInLog = {
+  const record: CheckInLog & { created_at?: string } = {
     id: String(row.id ?? `LOG-${Date.now()}`),
     employeeId: String(row.employeeId ?? row.employee_id ?? ''),
     employeeName: String(row.employeeName ?? row.employee_name ?? ''),
@@ -117,10 +114,14 @@ function normalizeCheckInRow(row: Record<string, unknown> | null | undefined): C
     avatarInitials: String(row.avatarInitials ?? row.avatar_initials ?? ''),
     avatarBg: String(row.avatarBg ?? row.avatar_bg ?? 'bg-[#0056b3]'),
     imageUrl: typeof row.imageUrl === 'string' ? row.imageUrl : typeof row.image_url === 'string' ? row.image_url : undefined,
-    remarks: typeof row.remarks === 'string' ? row.remarks : undefined
+    remarks: typeof row.remarks === 'string' ? row.remarks : undefined,
+    created_at: typeof createdAtValue === 'string' ? createdAtValue : undefined
   };
 
-  return record;
+  return {
+    ...record,
+    dateKey: getNairobiDateKey(createdAt)
+  };
 }
 
 async function fetchSupabaseEmployees(): Promise<Employee[]> {
