@@ -1,7 +1,7 @@
 export type EmployeeStatus = 'Active' | 'Inactive' | 'On Leave';
 export type CheckInStatus = 'ON TIME' | 'GRACE PERIOD' | 'LATE';
 export type AttendanceWindowStatus = CheckInStatus | 'CLOSED';
-export type Tab = 'attendance' | 'dashboard' | 'admin' | 'reports';
+export type Tab = 'attendance' | 'dashboard' | 'admin' | 'reports' | 'support';
 
 export interface Employee {
   id: string; // e.g. "NW-1045"
@@ -26,6 +26,7 @@ export interface CheckInLog {
   avatarBg: string; // Tailwind class like bg-blue-500
   imageUrl?: string;
   remarks?: string;
+  dateKey?: string; // YYYY-MM-DD in Nairobi time
 }
 
 export interface DashboardStats {

@@ -5,6 +5,8 @@ import {
   ShieldCheck,
   FileText,
   Bell,
+  UserCircle2,
+  BadgeCheck,
   type LucideIcon
 } from 'lucide-react';
 import {
@@ -32,6 +34,24 @@ import AttendanceDetailPage from './components/AttendanceDetailPage';
 import DashboardTab from './components/DashboardTab';
 import AdminTab from './components/AdminTab';
 import ReportsTab from './components/ReportsTab';
+import SupportTab from './components/SupportTab';
+import {
+  authenticateUser,
+  ensureDefaultUsers,
+  getCurrentUser,
+  getVisibleNavigation,
+  isGlobalRegionScope,
+  setCurrentUser,
+  type AppUser,
+  type PermissionName,
+  type SystemRole
+} from './auth';
+import {
+  formatNairobiClockTime,
+  formatNairobiDate,
+  getNairobiDateKey,
+  getSystemCheckInStatus
+} from './timePolicy';
 
 const DEFAULT_STATS: DashboardStats = {
   totalEmployees: 0,
@@ -52,7 +72,10 @@ const AVATAR_BG_COLORS = [
 ];
 
 const NAV_ITEMS: { id: Tab; label: string; Icon: LucideIcon }[] = [
-  { id: 'admin', label: 'Admin', Icon: ShieldCheck }
+  { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { id: 'admin', label: 'Admin', Icon: ShieldCheck },
+  { id: 'reports', label: 'Reports', Icon: FileText },
+  { id: 'support', label: 'Support', Icon: ShieldCheck }
 ];
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local';
@@ -62,25 +85,6 @@ const DEFAULT_APP_DATA = {
   logs: [] as CheckInLog[],
   stats: DEFAULT_STATS
 };
-
-function getSystemCheckInStatus(date: Date): AttendanceWindowStatus {
-  const minutes = date.getHours() * 60 + date.getMinutes();
-  const openStart = 7 * 60; // 07:00
-  const onTimeCutoff = 8 * 60; // 08:00 inclusive
-  const closeAt = 16 * 60; // 16:00 (4 PM)
-
-  if (minutes < openStart || minutes > closeAt) return 'CLOSED';
-  if (minutes <= onTimeCutoff) return 'ON TIME';
-  return 'LATE';
-}
-
-function formatCheckInTime(date: Date) {
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
-}
 
 function getInitials(name: string) {
   return name
@@ -120,7 +124,9 @@ export default function App() {
     loadData();
   }, []);
 
-  const checkedInIds: Set<string> = new Set((logs ?? []).map((log) => log.employeeId));
+  const todayKey = getNairobiDateKey(new Date());
+  const todayLogs = logs.filter((log) => log.dateKey === todayKey);
+  const checkedInIds: Set<string> = new Set(todayLogs.map((log) => log.employeeId));
   const [detailSection, setDetailSection] = useState<'roster' | 'active' | 'recorded' | 'pending' | null>(null);
 
   const [clockTime, setClockTime] = useState('');
@@ -129,9 +135,13 @@ export default function App() {
     getSystemCheckInStatus(new Date())
   );
   const [pagePath, setPagePath] = useState<'reception' | 'admin'>(initialPagePath);
+  const [currentUser, setCurrentUserState] = useState<AppUser | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() =>
     typeof window !== 'undefined' && window.localStorage.getItem('nw-admin-auth') === 'true'
   );
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState<string | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
@@ -143,6 +153,7 @@ export default function App() {
   const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   const [showChangeForm, setShowChangeForm] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [changeCurrentPassword, setChangeCurrentPassword] = useState('');
   const [changeNewPassword, setChangeNewPassword] = useState('');
   const [changeConfirmPassword, setChangeConfirmPassword] = useState('');
@@ -151,6 +162,61 @@ export default function App() {
   const isCheckInClosed = systemCheckInStatus === 'CLOSED';
   const isReceptionPage = pagePath === 'reception';
   const isAdminPage = pagePath === 'admin';
+  const effectiveRole = currentUser?.role ?? (isAdminAuthenticated ? 'system_admin' : null);
+  const visibleTabs = getVisibleNavigation(effectiveRole);
+  const isUserAuthenticated = Boolean(currentUser) || isAdminAuthenticated;
+  const authEnabledTabs = NAV_ITEMS.filter((item) => visibleTabs.includes(item.id));
+
+  const scopedEmployees = currentUser && !isGlobalRegionScope(currentUser)
+    ? employees.filter((employee) => {
+        const region = (employee as Employee & { region?: string }).region;
+        if (!region) return true;
+        return region === currentUser.region;
+      })
+    : employees;
+
+  const scopedLogs = currentUser && !isGlobalRegionScope(currentUser)
+    ? todayLogs.filter((log) => {
+        const region = (log as CheckInLog & { region?: string }).region;
+        if (!region) return true;
+        return region === currentUser.region;
+      })
+    : todayLogs;
+
+  const reportLogs = currentUser && !isGlobalRegionScope(currentUser)
+    ? logs.filter((log) => {
+        const region = (log as CheckInLog & { region?: string }).region;
+        if (!region) return true;
+        return region === currentUser.region;
+      })
+    : logs;
+
+  const scopedStats = currentUser && !isGlobalRegionScope(currentUser)
+    ? {
+        totalEmployees: scopedEmployees.length,
+        checkedIn: scopedLogs.length,
+        onTime: scopedLogs.filter((log) => log.status === 'ON TIME').length,
+        gracePeriod: scopedLogs.filter((log) => log.status === 'GRACE PERIOD').length,
+        lateArrivals: scopedLogs.filter((log) => log.status === 'LATE').length,
+        unaccounted: Math.max(0, scopedEmployees.length - scopedLogs.length)
+      }
+    : {
+        ...stats,
+        checkedIn: todayLogs.length,
+        onTime: todayLogs.filter((log) => log.status === 'ON TIME').length,
+        gracePeriod: todayLogs.filter((log) => log.status === 'GRACE PERIOD').length,
+        lateArrivals: todayLogs.filter((log) => log.status === 'LATE').length,
+        unaccounted: Math.max(0, employees.length - todayLogs.length)
+      };
+  const currentUserRoleLabel = currentUser ? currentUser.role.replace(/_/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase()) : 'System Admin';
+  const currentUserRoleColor = currentUser ? {
+    system_admin: 'bg-[#0f172a] text-white border-white/20',
+    hr_coordinator: 'bg-[#e0f2fe] text-sky-800 border-sky-200',
+    hr_supervisor: 'bg-[#ecfeff] text-cyan-800 border-cyan-200',
+    secretary: 'bg-[#f3e8ff] text-violet-800 border-violet-200',
+    regional_manager: 'bg-[#ecfccb] text-lime-800 border-lime-200',
+    it_technician: 'bg-[#fee2e2] text-red-800 border-red-200'
+  }[currentUser.role] : 'bg-white/10 text-white border-white/20';
 
   const handleShowDetail = (section: 'roster' | 'active' | 'recorded' | 'pending') => {
     setDetailSection(section);
@@ -220,12 +286,53 @@ export default function App() {
     })();
   };
 
+  const handleRoleLogin = () => {
+    setLoginError(null);
+    if (!loginUsername.trim() || !loginPassword.trim()) {
+      setLoginError('Enter both username and password.');
+      return;
+    }
+
+    ensureDefaultUsers();
+    const user = authenticateUser(loginUsername, loginPassword);
+    if (!user) {
+      setLoginError('Invalid username or password.');
+      return;
+    }
+
+    setCurrentUserState(user);
+    setCurrentUser(user);
+    setIsAdminAuthenticated(user.role === 'system_admin');
+    if (user.role === 'system_admin') {
+      window.localStorage.setItem('nw-admin-auth', 'true');
+    } else {
+      window.localStorage.removeItem('nw-admin-auth');
+    }
+    setPagePath('admin');
+    setActiveTab(user.role === 'it_technician' ? 'support' : user.role === 'secretary' ? 'attendance' : 'dashboard');
+  };
+
   const handleAdminLogout = () => {
     setIsAdminAuthenticated(false);
+    setCurrentUserState(null);
+    setCurrentUser(null);
     window.localStorage.removeItem('nw-admin-auth');
     setError(null);
     setAdminPassword('');
+    setLoginUsername('');
+    setLoginPassword('');
   };
+
+  useEffect(() => {
+    ensureDefaultUsers();
+    const storedUser = getCurrentUser();
+    if (storedUser) {
+      setCurrentUserState(storedUser);
+      if (storedUser.role === 'system_admin') {
+        setIsAdminAuthenticated(true);
+      }
+    }
+  }, []);
 
   // Forgot / Reset password
   const handleForgotRequest = async () => {
@@ -310,7 +417,7 @@ export default function App() {
       setStats(result.stats);
       setError(null);
     } catch (err) {
-      setError((err as Error).message || 'Unable to add employee.');
+      throw new Error((err as Error).message || 'Unable to add employee.');
     }
   };
 
@@ -321,7 +428,7 @@ export default function App() {
       setStats(result.stats);
       setError(null);
     } catch (err) {
-      setError((err as Error).message || 'Unable to update employee.');
+      throw new Error((err as Error).message || 'Unable to update employee.');
     }
   };
 
@@ -333,15 +440,15 @@ export default function App() {
       setStats(result.stats);
       setError(null);
     } catch (err) {
-      setError((err as Error).message || 'Unable to delete employee.');
+      throw new Error((err as Error).message || 'Unable to delete employee.');
     }
   };
 
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
-      setClockTime(now.toLocaleTimeString('en-GB', { hour12: false }));
-      setClockDate(now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase());
+      setClockTime(formatNairobiClockTime(now));
+      setClockDate(formatNairobiDate(now));
       setSystemCheckInStatus(getSystemCheckInStatus(now));
     };
 
@@ -362,19 +469,20 @@ export default function App() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-red-700 px-4">
-        <div className="max-w-lg rounded-3xl border border-red-200 bg-white p-8 shadow-sm">
-          <h2 className="text-xl font-bold">Unable to load the attendance system</h2>
-          <p className="mt-3 text-sm text-slate-600">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`print-scope relative min-h-screen overflow-hidden app-background flex flex-col selection:bg-[#0B5ED7]/15 ${isAdminPage && activeTab !== 'reports' ? 'admin-print-mode' : ''}`}>
+      {error && (
+        <div role="alert" className="no-print mx-auto mt-4 flex w-[min(90rem,calc(100%-2rem))] items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="shrink-0 rounded-md px-2 py-1 font-semibold hover:bg-amber-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Print-only header: visible when printing, hidden on screen */}
       <div className="pointer-events-none fixed inset-x-0 top-0 h-64 bg-[linear-gradient(135deg,rgba(0,86,179,0.08),rgba(12,164,255,0.04),rgba(255,255,255,0.45))] print:hidden" />
       {/* Top Application Header (Fixed for clean navigation) */}
@@ -401,17 +509,33 @@ export default function App() {
 
           <div className="ml-auto flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-3">
-              <span className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-                Admin
-              </span>
+              {currentUser ? (
+                <div className="rounded-2xl border border-white/20 bg-white/10 px-3 py-2 text-left shadow-sm backdrop-blur-sm">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-100">Signed in</p>
+                  <p className="mt-1 text-sm font-bold text-white">{currentUser.fullName}</p>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-blue-100">{currentUserRoleLabel}</p>
+                </div>
+              ) : (
+                <span className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                  Admin
+                </span>
+              )}
             </div>
-            </div>
+            {currentUser && (
+              <button
+                type="button"
+                onClick={() => setShowProfile((value) => !value)}
+                className={`inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition hover:opacity-95 ${currentUserRoleColor}`}
+              >
+                <BadgeCheck className="h-3.5 w-3.5" />
+                {currentUserRoleLabel}
+              </button>
+            )}
             <div className="relative overflow-hidden rounded-[28px] border border-white/20 bg-gradient-to-br from-slate-950/80 via-slate-900/75 to-slate-800/80 px-4 py-3 text-right shadow-[0_30px_80px_-34px_rgba(15,23,42,0.7)] backdrop-blur-xl sm:px-5 sm:py-4">
               <div className="absolute -right-6 top-1 h-24 w-24 rounded-full bg-cyan-400/10 blur-3xl"></div>
               <div className="absolute -left-6 bottom-1 h-20 w-20 rounded-full bg-white/10 blur-3xl"></div>
               <p className="relative text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-300">
-                Live clock
+                Nairobi time
               </p>
               <p className="relative mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-[1.5rem]">
                 {clockTime}
@@ -436,7 +560,7 @@ export default function App() {
           {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection === null && (
             <AttendanceTab
               employees={employees}
-              logs={logs}
+              logs={todayLogs}
               onCheckIn={handleCheckIn}
               onNavigateToTab={setActiveTab}
               onShowDetail={handleShowDetail}
@@ -449,7 +573,7 @@ export default function App() {
             <AttendanceDetailPage
               section={detailSection}
               employees={employees}
-              logs={logs}
+              logs={todayLogs}
               checkedInIds={checkedInIds}
               onBack={handleCloseDetail}
             />
@@ -463,7 +587,7 @@ export default function App() {
             />
           )}
 
-          {isAdminPage && !isAdminAuthenticated && (
+          {isAdminPage && !isUserAuthenticated && (
             <div className="no-print relative max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             {adminLoading && (
               <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl">
@@ -473,47 +597,73 @@ export default function App() {
                 </div>
               </div>
             )}
-            <h2 className="text-2xl font-bold text-slate-900">Admin login</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Staff role login</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Enter the admin password to access employee management and sensitive controls.
+              Sign in with your role account to access the attendance dashboard and support tools assigned to your mandate.
             </p>
             <div className="mt-6 space-y-4">
+              <label className="block text-sm font-semibold text-slate-700">Username</label>
+              <input
+                type="text"
+                value={loginUsername}
+                onChange={(e) => setLoginUsername(e.target.value)}
+                className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="Enter username"
+              />
               <label className="block text-sm font-semibold text-slate-700">Password</label>
               <input
                 type="password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
                 className="w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                placeholder="Enter admin password"
+                placeholder="Enter password"
               />
-              {adminError && (
-                <p className="text-sm text-red-600">{adminError}</p>
+              {loginError && (
+                <p className="text-sm text-red-600">{loginError}</p>
               )}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={handleAdminLogin}
-                  disabled={adminLoading}
-                  className={`inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${adminLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'}`}
+                  onClick={handleRoleLogin}
+                  className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-500"
                 >
-                  {adminLoading ? (
-                    <span className="inline-flex items-center gap-3">
-                      <span className="login-loader-ring" />
-                      <span>Unlocking admin area...</span>
-                    </span>
-                  ) : (
-                    'Unlock admin area'
-                  )}
+                  Sign in
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowForgot((s) => !s); setResetMessage(null); setForgotToken(null); }}
-                  disabled={adminLoading}
-                  className={`text-sm underline ${adminLoading ? 'text-slate-400 cursor-not-allowed' : 'text-[#003f87] hover:opacity-90'}`}
+                  className="text-sm underline text-[#003f87] hover:opacity-90"
                 >
                   Forgot password?
                 </button>
               </div>
+
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-700">
+                <p className="font-semibold text-slate-900">Legacy system admin login</p>
+                <p className="mt-1">Username is not required for the old admin password flow. Use the legacy admin button below if you need the original admin path.</p>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="w-full max-w-md rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  placeholder="Legacy admin password"
+                />
+                <button
+                  type="button"
+                  onClick={handleAdminLogin}
+                  disabled={adminLoading}
+                  className={`inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${adminLoading ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-700 hover:bg-slate-600'}`}
+                >
+                  {adminLoading ? 'Checking...' : 'Legacy admin'}
+                </button>
+              </div>
+
+              {adminError && (
+                <p className="text-sm text-red-600">{adminError}</p>
+              )}
 
               {showForgot && (
                 <div className="mt-4 space-y-3 rounded-lg border border-dashed p-4 bg-gray-50">
@@ -587,10 +737,44 @@ export default function App() {
           </div>
         )}
 
-        {isAdminPage && isAdminAuthenticated && (
+        {isAdminPage && isUserAuthenticated && (
           <>
-            <div className="no-print mb-6 flex items-center justify-end gap-3">
+            <div className="no-print mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="rounded-[1.6rem] border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">My account</p>
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-black text-white shadow-sm">
+                    {currentUser ? getInitials(currentUser.fullName) : 'AD'}
+                  </div>
+                  <div>
+                    <p className="text-xl font-black text-slate-900">{currentUser?.fullName ?? 'System Administrator'}</p>
+                    <p className="text-sm text-slate-600">{currentUser?.username ?? 'admin'} • {currentUserRoleLabel}</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl bg-slate-50 px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Department</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{currentUser?.department ?? 'Administration'}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Status</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-700">{currentUser?.status ?? 'active'}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Access</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{visibleTabs.join(', ') || 'attendance'}</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowProfile((value) => !value)}
+                  className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                  Profile
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowChangeForm((s) => !s)}
@@ -607,6 +791,42 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {showProfile && (
+              <div className="no-print mb-6 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-black text-white shadow-sm">
+                    {currentUser ? getInitials(currentUser.fullName) : 'AD'}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">User profile</p>
+                    <h3 className="text-2xl font-black text-slate-900">{currentUser?.fullName ?? 'System Administrator'}</h3>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Username</p>
+                    <p className="mt-2 text-base font-bold text-slate-800">{currentUser?.username ?? 'admin'}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Role</p>
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-sm font-bold text-slate-800">
+                      <UserCircle2 className="h-4 w-4" />
+                      <span>{currentUserRoleLabel}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Department</p>
+                    <p className="mt-2 text-base font-bold text-slate-800">{currentUser?.department ?? 'Administration'}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Access scope</p>
+                    <p className="mt-2 text-base font-bold text-slate-800">{visibleTabs.join(', ') || 'attendance'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {showChangeForm && (
               <div className="no-print max-w-3xl mx-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-sm mb-6">
@@ -645,9 +865,9 @@ export default function App() {
 
             {activeTab === 'dashboard' && (
               <DashboardTab
-                employees={employees}
-                logs={logs}
-                stats={stats}
+                employees={scopedEmployees}
+                logs={scopedLogs}
+                stats={scopedStats}
                 onNavigateToTab={setActiveTab}
                 onShowDetail={handleShowDetail}
               />
@@ -664,9 +884,14 @@ export default function App() {
 
             {activeTab === 'reports' && (
               <ReportsTab
-                logs={logs}
-                stats={stats}
+                employees={scopedEmployees}
+                logs={reportLogs}
+                stats={scopedStats}
               />
+            )}
+
+            {activeTab === 'support' && (
+              <SupportTab />
             )}
           </>
         )}
@@ -710,23 +935,7 @@ export default function App() {
           </>
         ) : (
           <>
-            {isAdminAuthenticated && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('reports')}
-                aria-current={activeTab === 'reports' ? 'page' : undefined}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-2 py-2 transition-all duration-200 active:scale-95 cursor-pointer ${activeTab === 'reports'
-                  ? 'bg-[#0056b3] text-white font-bold shadow-sm'
-                  : 'text-[#424752] hover:bg-[#E5F2FF] hover:text-[#0056b3]'
-                  }`}
-              >
-                <FileText className="w-5 h-5" />
-                <span className="mt-1 max-w-full truncate text-[10px] font-bold tracking-wider uppercase">
-                  Reports
-                </span>
-              </button>
-            )}
-            {NAV_ITEMS.map(({ id, label, Icon }) => {
+            {isUserAuthenticated && authEnabledTabs.map(({ id, label, Icon }) => {
               const isActive = activeTab === id;
 
               return (

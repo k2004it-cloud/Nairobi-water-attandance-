@@ -1,4 +1,5 @@
 import { getAppData } from './dataStore.js';
+import { getErrorMessage } from './errorMessage.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
@@ -12,8 +13,7 @@ export default async function handler(req: any, res: any) {
   } catch (error) {
     console.error('appData handler error:', error);
     res.status(500).json({
-      error: (error as Error).message || 'Unable to load application data',
-      details: (error as any).stack
+      error: getErrorMessage(error, 'Unable to load application data')
     });
   }
 }

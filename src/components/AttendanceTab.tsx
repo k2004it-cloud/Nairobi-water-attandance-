@@ -176,7 +176,7 @@ export default function AttendanceTab({
             {systemCheckInStatus === 'CLOSED' ? 'CLOSED' : systemCheckInStatus}
           </p>
           <p className="mt-1 text-[10px] text-[#424752]">
-            Based on current system time, not staff selection.
+            Nairobi time: on time 06:00–08:00; late 08:01–16:00.
           </p>
           {systemCheckInStatus === 'CLOSED' && (
             <p className="mt-1 text-[10px] text-[#ba1a1a]">

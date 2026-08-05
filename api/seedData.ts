@@ -1,4 +1,5 @@
 import type { Employee, CheckInLog, EmployeeStatus } from '../src/types.js';
+import { getNairobiDateKey } from '../src/timePolicy.js';
 
 type SeedEmployee = Omit<Employee, 'email' | 'imageUrl'>;
 
@@ -70,6 +71,8 @@ export const INITIAL_EMPLOYEES: Employee[] = EMPLOYEE_BASE.map(
   })
 );
 
+const TODAY_KEY = getNairobiDateKey(new Date());
+
 export const INITIAL_LOGS: CheckInLog[] = [
   {
     id: 'LOG-001',
@@ -81,7 +84,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'AH',
     avatarBg: 'bg-blue-500',
-    imageUrl: imageUrls[0]
+    imageUrl: imageUrls[0],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-002',
@@ -93,7 +97,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'JK',
     avatarBg: 'bg-amber-500',
-    imageUrl: imageUrls[1]
+    imageUrl: imageUrls[1],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-003',
@@ -105,7 +110,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'JM',
     avatarBg: 'bg-red-500',
-    imageUrl: imageUrls[2]
+    imageUrl: imageUrls[2],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-004',
@@ -117,7 +123,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'ON TIME',
     avatarInitials: 'OK',
     avatarBg: 'bg-emerald-500',
-    imageUrl: imageUrls[3]
+    imageUrl: imageUrls[3],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-005',
@@ -129,7 +136,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'ON TIME',
     avatarInitials: 'AW',
     avatarBg: 'bg-indigo-500',
-    imageUrl: imageUrls[4]
+    imageUrl: imageUrls[4],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-006',
@@ -141,7 +149,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'JM',
     avatarBg: 'bg-sky-500',
-    imageUrl: imageUrls[5]
+    imageUrl: imageUrls[5],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-007',
@@ -153,7 +162,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'GN',
     avatarBg: 'bg-rose-500',
-    imageUrl: imageUrls[6]
+    imageUrl: imageUrls[6],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-008',
@@ -165,7 +175,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'ON TIME',
     avatarInitials: 'PO',
     avatarBg: 'bg-lime-500',
-    imageUrl: imageUrls[7]
+    imageUrl: imageUrls[7],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-009',
@@ -177,7 +188,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'SO',
     avatarBg: 'bg-fuchsia-500',
-    imageUrl: imageUrls[8]
+    imageUrl: imageUrls[8],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-010',
@@ -189,7 +201,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'DK',
     avatarBg: 'bg-cyan-500',
-    imageUrl: imageUrls[9]
+    imageUrl: imageUrls[9],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-011',
@@ -201,7 +214,8 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'FN',
     avatarBg: 'bg-violet-500',
-    imageUrl: imageUrls[10]
+    imageUrl: imageUrls[10],
+    dateKey: TODAY_KEY
   },
   {
     id: 'LOG-012',
@@ -213,6 +227,7 @@ export const INITIAL_LOGS: CheckInLog[] = [
     status: 'LATE',
     avatarInitials: 'KO',
     avatarBg: 'bg-emerald-700',
-    imageUrl: imageUrls[11]
+    imageUrl: imageUrls[11],
+    dateKey: TODAY_KEY
   }
 ];

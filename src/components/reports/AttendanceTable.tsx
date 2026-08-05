@@ -14,7 +14,7 @@ const headers = [
   { label: 'Department', key: 'department', printHidden: false },
   { label: 'Check-In Time', key: 'checkInTime', printHidden: false },
   { label: 'Expected Time', key: 'expectedTime', printHidden: true },
-  { label: 'Minutes Late', key: 'minutesLate', printHidden: true },
+  { label: 'Late Duration', key: 'lateDuration', printHidden: false },
   { label: 'Status', key: 'status', printHidden: true },
   { label: 'Remarks', key: 'remarks', printHidden: true }
 ];
@@ -23,7 +23,7 @@ function formatExpectedTime() {
   return '08:00 AM';
 }
 
-function calculateLateMinutes(log: CheckInLog) {
+function formatLateDuration(log: CheckInLog) {
   if (!log.checkInTime) return '-';
   const [time, period] = log.checkInTime.split(' ');
   const [hours, minutes] = time.split(':').map(Number);
@@ -31,7 +31,13 @@ function calculateLateMinutes(log: CheckInLog) {
   if (period === 'PM') totalMinutes += 12 * 60;
   const expected = 8 * 60;
   const diff = totalMinutes - expected;
-  return diff > 0 ? `${diff} Minutes Late` : 'On Time';
+  if (diff <= 0) return 'On Time';
+  if (diff < 60) return `${diff} min late`;
+
+  const hoursLate = Math.floor(diff / 60);
+  const minutesLate = diff % 60;
+  const hourLabel = `${hoursLate} hr${hoursLate > 1 ? 's' : ''}`;
+  return minutesLate > 0 ? `${hourLabel} ${minutesLate} min late` : `${hourLabel} late`;
 }
 
 function getStatusValue(status: string) {
@@ -76,7 +82,7 @@ export function AttendanceTable({ logs }: AttendanceTableProps) {
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{log.department}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{log.checkInTime || '-'}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700 print:hidden">{formatExpectedTime()}</td>
-                  <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700 print:hidden">{calculateLateMinutes(log)}</td>
+                  <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700">{formatLateDuration(log)}</td>
                   <td className="border-b border-slate-200 px-3 py-3 text-sm text-slate-700 print:hidden">
                     <StatusBadge status={getStatusValue(log.status) as 'PRESENT' | 'LATE' | 'ABSENT'} />
                   </td>

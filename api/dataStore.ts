@@ -4,41 +4,40 @@ import path from 'path';
 import type { Employee, CheckInLog, DashboardStats, CheckInStatus } from '../src/types.js';
 import { supabaseAdmin } from './supabaseClient.js';
 import { INITIAL_EMPLOYEES, INITIAL_LOGS } from './seedData.js';
+import { getErrorMessage } from './errorMessage.js';
+import {
+  formatNairobiCheckInTime,
+  getMinutesLate,
+  getNairobiDateKey,
+  getSystemCheckInStatus,
+  isNairobiWeekend,
+  isSameAttendanceDay
+} from '../src/timePolicy.js';
 
 const STORE_FILE = path.join(os.tmpdir(), 'attendance-store.json');
 let storeInitialized = false;
 
+const IS_LOCAL_DEV = process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'production';
 const SUPABASE_ENABLED = Boolean(process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && supabaseAdmin);
+const ALLOW_LOCAL_FALLBACK = IS_LOCAL_DEV;
 const SUPABASE_EMPLOYEES_TABLE = 'employees';
 const SUPABASE_CHECKINS_TABLE = 'checkins';
+
+function ensureSupabaseEnabled() {
+  if (!SUPABASE_ENABLED) {
+    throw new Error(
+      'Supabase is not configured for this environment. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+    );
+  }
+}
 
 let employees: Employee[] = [];
 let logs: CheckInLog[] = [];
 let stats: DashboardStats = computeStats();
-// Simple in-memory admin record for prototype purposes
-let admin = {
-  // default can be overridden by VERCEL env vars or local env when deployed
-  password: process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || 'admin2030',
-  email: process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local'
-};
-
-// reset tokens stored as token -> { email, expires }
-const resetTokens: Record<string, { email: string; expires: number }> = {};
-
-function getSystemCheckInStatus(date: Date): CheckInStatus | 'CLOSED' {
-  const minutes = date.getHours() * 60 + date.getMinutes();
-  const openStart = 7 * 60; // 07:00
-  const onTimeCutoff = 8 * 60; // 08:00 inclusive
-  const closeAt = 16 * 60; // 16:00 (4 PM)
-
-  if (minutes < openStart || minutes > closeAt) return 'CLOSED';
-  if (minutes <= onTimeCutoff) return 'ON TIME';
-  return 'LATE';
-}
 
 function formatLateRemarks(minutesLate: number, date: Date): string | undefined {
   if (minutesLate <= 0) return undefined;
-  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  const isWeekend = isNairobiWeekend(date);
 
   if (minutesLate < 60) {
     return isWeekend ? `${minutesLate} min` : `${minutesLate} min${minutesLate === 1 ? '' : 's'} late`;
@@ -56,12 +55,18 @@ function formatLateRemarks(minutesLate: number, date: Date): string | undefined 
   return minutes > 0 ? `${hourLabel} ${minuteLabel} late` : `${hourLabel} late`;
 }
 
-function computeStatsForData(employeesData: Employee[], logsData: CheckInLog[]): DashboardStats {
+function computeStatsForData(employeesData: Employee[], logsData: CheckInLog[], dateKeyOverride?: string): DashboardStats {
+  const dayKey = dateKeyOverride ?? getNairobiDateKey(new Date());
+  const filteredLogs = logsData.filter((log) => {
+    if (log.dateKey) return log.dateKey === dayKey;
+    return true;
+  });
+
   const totalEmployees = employeesData.length;
-  const checkedIn = logsData.length;
-  const onTime = logsData.filter((log) => log.status === 'ON TIME').length;
-  const gracePeriod = logsData.filter((log) => log.status === 'GRACE PERIOD').length;
-  const lateArrivals = logsData.filter((log) => log.status === 'LATE').length;
+  const checkedIn = filteredLogs.length;
+  const onTime = filteredLogs.filter((log) => log.status === 'ON TIME').length;
+  const gracePeriod = filteredLogs.filter((log) => log.status === 'GRACE PERIOD').length;
+  const lateArrivals = filteredLogs.filter((log) => log.status === 'LATE').length;
 
   return {
     totalEmployees,
@@ -74,11 +79,53 @@ function computeStatsForData(employeesData: Employee[], logsData: CheckInLog[]):
 }
 
 function computeStats(): DashboardStats {
-  return computeStatsForData(employees, logs);
+  return computeStatsForData(employees, logs, getNairobiDateKey(new Date()));
+}
+
+function normalizeEmployeeRow(row: Record<string, unknown> | null | undefined): Employee | null {
+  if (!row) return null;
+
+  const statusValue = String(row.status ?? 'Active');
+  return {
+    id: String(row.id ?? ''),
+    name: String(row.name ?? ''),
+    email: String(row.email ?? ''),
+    department: String(row.department ?? ''),
+    position: String(row.position ?? ''),
+    status: (statusValue === 'Active' || statusValue === 'Inactive' || statusValue === 'On Leave')
+      ? (statusValue as Employee['status'])
+      : 'Active',
+    imageUrl: String(row.imageUrl ?? row.image_url ?? ''),
+    verified: Boolean(row.verified ?? row.is_verified ?? true)
+  };
+}
+
+function normalizeCheckInRow(row: Record<string, unknown> | null | undefined): CheckInLog | null {
+  if (!row) return null;
+
+  const createdAtValue = row.created_at;
+  const createdAt = typeof createdAtValue === 'string' ? new Date(createdAtValue) : new Date();
+  const normalizedStatus = String(row.status ?? 'ON TIME') as CheckInStatus;
+  const record: CheckInLog = {
+    id: String(row.id ?? `LOG-${Date.now()}`),
+    employeeId: String(row.employeeId ?? row.employee_id ?? ''),
+    employeeName: String(row.employeeName ?? row.employee_name ?? ''),
+    department: String(row.department ?? ''),
+    position: typeof row.position === 'string' ? row.position : undefined,
+    checkInTime: String(row.checkInTime ?? row.check_in_time ?? formatNairobiCheckInTime(createdAt)),
+    status: normalizedStatus,
+    avatarInitials: String(row.avatarInitials ?? row.avatar_initials ?? ''),
+    avatarBg: String(row.avatarBg ?? row.avatar_bg ?? 'bg-[#0056b3]'),
+    imageUrl: typeof row.imageUrl === 'string' ? row.imageUrl : typeof row.image_url === 'string' ? row.image_url : undefined,
+    remarks: typeof row.remarks === 'string' ? row.remarks : undefined
+  };
+
+  return record;
 }
 
 async function fetchSupabaseEmployees(): Promise<Employee[]> {
-  const { data, error } = await supabaseAdmin
+  const adminClient = supabaseAdmin!;
+  const { data, error } = await adminClient
     .from(SUPABASE_EMPLOYEES_TABLE)
     .select('*')
     .order('id', { ascending: false });
@@ -87,11 +134,12 @@ async function fetchSupabaseEmployees(): Promise<Employee[]> {
     throw error;
   }
 
-  return data as Employee[] ?? [];
+  return (data ?? []).map((row) => normalizeEmployeeRow(row as Record<string, unknown>)).filter(Boolean) as Employee[];
 }
 
 async function fetchSupabaseLogs(): Promise<CheckInLog[]> {
-  const { data, error } = await supabaseAdmin
+  const adminClient = supabaseAdmin!;
+  const { data, error } = await adminClient
     .from(SUPABASE_CHECKINS_TABLE)
     .select('*')
     .order('id', { ascending: false });
@@ -100,15 +148,41 @@ async function fetchSupabaseLogs(): Promise<CheckInLog[]> {
     throw error;
   }
 
-  return data ?? [];
+  return (data ?? [])
+    .map((row) => normalizeCheckInRow(row as Record<string, unknown>))
+    .filter(Boolean)
+    .map((log) => normalizeSupabaseLog(log as CheckInLog & { created_at?: unknown }));
+}
+
+/**
+ * Earlier Vercel records stored a UTC-formatted display time. The ISO timestamp
+ * is authoritative, so use it to show historical records in Nairobi time too.
+ */
+function normalizeSupabaseLog(log: CheckInLog & { created_at?: unknown }): CheckInLog {
+  if (typeof log.created_at !== 'string') return log;
+
+  const recordedAt = new Date(log.created_at);
+  if (Number.isNaN(recordedAt.getTime())) return log;
+
+  const status = getSystemCheckInStatus(recordedAt);
+  if (status === 'CLOSED') return log;
+
+  const minutesLate = getMinutesLate(recordedAt);
+  return {
+    ...log,
+    checkInTime: formatNairobiCheckInTime(recordedAt),
+    status,
+    remarks: status === 'LATE' ? formatLateRemarks(minutesLate, recordedAt) : undefined
+  };
 }
 
 async function loadSupabaseData(): Promise<{ employees: Employee[]; logs: CheckInLog[]; stats: DashboardStats }> {
   const [employeesData, logsData] = await Promise.all([fetchSupabaseEmployees(), fetchSupabaseLogs()]);
+  const todayKey = getNairobiDateKey(new Date());
   return {
     employees: employeesData,
     logs: logsData,
-    stats: computeStatsForData(employeesData, logsData)
+    stats: computeStatsForData(employeesData, logsData, todayKey)
   };
 }
 
@@ -157,54 +231,19 @@ export async function getAppData() {
     return await loadSupabaseData();
   }
 
-  ensureStore();
-  return { employees, logs, stats };
-}
-
-export function verifyAdminPassword(password: string) {
-  return password === admin.password;
-}
-
-export function setAdminPassword(currentPassword: string, newPassword: string) {
-  if (currentPassword !== admin.password) {
-    throw new Error('Current admin password is incorrect');
-  }
-  admin.password = newPassword;
-  return { email: admin.email };
-}
-
-export function createResetToken(email: string) {
-  // In a real system we'd email this token; here we store and return it for testing
-  if (email !== admin.email) {
-    // don't reveal whether email exists in production
-    throw new Error('If the email is registered, a reset link will be sent');
+  if (ALLOW_LOCAL_FALLBACK) {
+    ensureStore();
+    return { employees, logs, stats };
   }
 
-  const token = `rt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const expires = Date.now() + 1000 * 60 * 60; // 1 hour
-  resetTokens[token] = { email, expires };
-  return token;
-}
-
-export function resetPasswordWithToken(token: string, newPassword: string) {
-  const entry = resetTokens[token];
-  if (!entry || entry.expires < Date.now()) {
-    throw new Error('Reset token is invalid or has expired');
-  }
-
-  if (entry.email !== admin.email) {
-    throw new Error('Reset token email mismatch');
-  }
-
-  admin.password = newPassword;
-  delete resetTokens[token];
-  return { email: admin.email };
+  ensureSupabaseEnabled();
 }
 
 export async function checkIn(employeeId: string) {
   if (SUPABASE_ENABLED) {
     try {
-      const { data: employeeData, error: employeeError } = await supabaseAdmin
+      const adminClient = supabaseAdmin!;
+      const { data: employeeData, error: employeeError } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
         .select('*')
         .eq('id', employeeId)
@@ -214,7 +253,7 @@ export async function checkIn(employeeId: string) {
         throw new Error(employeeError?.message || 'Employee not found');
       }
 
-      const { data: existingLogs, error: existingError } = await supabaseAdmin
+      const { data: existingLogs, error: existingError } = await adminClient
         .from(SUPABASE_CHECKINS_TABLE)
         .select('id')
         .eq('employeeId', employeeId);
@@ -233,24 +272,20 @@ export async function checkIn(employeeId: string) {
         throw new Error('Check-in is closed for today');
       }
 
-      const minutesLate = Math.max(0, now.getHours() * 60 + now.getMinutes() - 8 * 60);
+      const minutesLate = getMinutesLate(now);
       const newLog: CheckInLog = {
         id: `LOG-${Date.now()}`,
         employeeId: employeeData.id,
         employeeName: employeeData.name,
         department: employeeData.department,
         position: employeeData.position,
-        checkInTime: now.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        }),
+        checkInTime: formatNairobiCheckInTime(now),
         status,
         remarks: status === 'LATE' ? formatLateRemarks(minutesLate, now) : undefined,
         avatarInitials: employeeData.name
           .trim()
           .split(/\s+/)
-          .map((part) => part[0])
+          .map((part: string) => part[0])
           .join('')
           .substring(0, 2)
           .toUpperCase(),
@@ -260,7 +295,7 @@ export async function checkIn(employeeId: string) {
         imageUrl: employeeData.imageUrl || undefined
       };
 
-      const { error: insertError } = await supabaseAdmin
+      const { error: insertError } = await adminClient
         .from(SUPABASE_CHECKINS_TABLE)
         .insert([{ ...newLog, created_at: new Date().toISOString() }]);
 
@@ -272,40 +307,43 @@ export async function checkIn(employeeId: string) {
       return { ...appData, status };
     } catch (error) {
       console.error('Supabase checkIn failed:', error);
-      throw error instanceof Error ? error : new Error(String(error));
+      throw new Error(getErrorMessage(error, 'Unable to record attendance'));
     }
   }
 
-  ensureStore();
+  if (ALLOW_LOCAL_FALLBACK) {
+    ensureStore();
+  } else {
+    ensureSupabaseEnabled();
+  }
 
   const employee = employees.find((emp) => emp.id === employeeId);
   if (!employee) {
     throw new Error('Employee not found');
   }
 
-  const alreadyCheckedIn = logs.some((log) => log.employeeId === employeeId);
+  const now = new Date();
+  const dateKey = getNairobiDateKey(now);
+  const alreadyCheckedIn = logs.some((log) =>
+    log.employeeId === employeeId && (!log.dateKey || isSameAttendanceDay(log.dateKey, dateKey))
+  );
   if (alreadyCheckedIn) {
-    throw new Error('Employee has already checked in');
+    throw new Error('Employee has already checked in for this day');
   }
 
-  const now = new Date();
   const status = getSystemCheckInStatus(now);
   if (status === 'CLOSED') {
     throw new Error('Check-in is closed for today');
   }
 
-  const minutesLate = Math.max(0, now.getHours() * 60 + now.getMinutes() - 8 * 60);
+  const minutesLate = getMinutesLate(now);
   const newLog: CheckInLog = {
     id: `LOG-${Date.now()}`,
     employeeId: employee.id,
     employeeName: employee.name,
     department: employee.department,
     position: employee.position,
-    checkInTime: now.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }),
+    checkInTime: formatNairobiCheckInTime(now),
     status,
     remarks: status === 'LATE' ? formatLateRemarks(minutesLate, now) : undefined,
     avatarInitials: employee.name
@@ -318,7 +356,8 @@ export async function checkIn(employeeId: string) {
     avatarBg: ['bg-[#0056b3]', 'bg-[#335f9d]', 'bg-indigo-600', 'bg-emerald-600', 'bg-teal-600', 'bg-amber-600'][
       Math.floor(Math.random() * 6)
     ],
-    imageUrl: employee.imageUrl || undefined
+    imageUrl: employee.imageUrl || undefined,
+    dateKey
   };
 
   logs = [newLog, ...logs];
@@ -336,7 +375,8 @@ export async function checkIn(employeeId: string) {
 export async function addEmployee(employee: Employee) {
   if (SUPABASE_ENABLED) {
     try {
-      const { error } = await supabaseAdmin
+      const adminClient = supabaseAdmin!;
+      const { error } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
         .insert([{ ...employee, created_at: new Date().toISOString() }]);
       if (error) {
@@ -346,11 +386,15 @@ export async function addEmployee(employee: Employee) {
       return { employees: appData.employees, stats: appData.stats };
     } catch (error) {
       console.error('Supabase addEmployee failed:', error);
-      throw error instanceof Error ? error : new Error(String(error));
+      throw new Error(getErrorMessage(error, 'Unable to add employee'));
     }
   }
 
-  ensureStore();
+  if (ALLOW_LOCAL_FALLBACK) {
+    ensureStore();
+  } else {
+    ensureSupabaseEnabled();
+  }
 
   if (employees.some((existing) => existing.id === employee.id)) {
     throw new Error('Employee ID already exists');
@@ -366,7 +410,8 @@ export async function addEmployee(employee: Employee) {
 export async function editEmployee(employee: Employee) {
   if (SUPABASE_ENABLED) {
     try {
-      const { error } = await supabaseAdmin
+      const adminClient = supabaseAdmin!;
+      const { error } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
         .update({
           name: employee.name,
@@ -383,7 +428,7 @@ export async function editEmployee(employee: Employee) {
         throw error;
       }
 
-      const { error: logUpdateError } = await supabaseAdmin
+      const { error: logUpdateError } = await adminClient
         .from(SUPABASE_CHECKINS_TABLE)
         .update({
           employeeName: employee.name,
@@ -401,11 +446,15 @@ export async function editEmployee(employee: Employee) {
       return { employees: appData.employees, stats: appData.stats };
     } catch (error) {
       console.error('Supabase editEmployee failed:', error);
-      throw error instanceof Error ? error : new Error(String(error));
+      throw new Error(getErrorMessage(error, 'Unable to update employee'));
     }
   }
 
-  ensureStore();
+  if (ALLOW_LOCAL_FALLBACK) {
+    ensureStore();
+  } else {
+    ensureSupabaseEnabled();
+  }
 
   if (!employees.some((existing) => existing.id === employee.id)) {
     throw new Error('Employee not found');
@@ -426,7 +475,8 @@ export async function editEmployee(employee: Employee) {
 export async function deleteEmployee(employeeId: string) {
   if (SUPABASE_ENABLED) {
     try {
-      const { error: deleteLogsError } = await supabaseAdmin
+      const adminClient = supabaseAdmin!;
+      const { error: deleteLogsError } = await adminClient
         .from(SUPABASE_CHECKINS_TABLE)
         .delete()
         .eq('employeeId', employeeId);
@@ -434,7 +484,7 @@ export async function deleteEmployee(employeeId: string) {
         throw deleteLogsError;
       }
 
-      const { error: deleteEmployeeError } = await supabaseAdmin
+      const { error: deleteEmployeeError } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
         .delete()
         .eq('id', employeeId);
@@ -446,11 +496,15 @@ export async function deleteEmployee(employeeId: string) {
       return { employees: appData.employees, logs: appData.logs, stats: appData.stats };
     } catch (error) {
       console.error('Supabase deleteEmployee failed:', error);
-      throw error instanceof Error ? error : new Error(String(error));
+      throw new Error(getErrorMessage(error, 'Unable to delete employee'));
     }
   }
 
-  ensureStore();
+  if (ALLOW_LOCAL_FALLBACK) {
+    ensureStore();
+  } else {
+    ensureSupabaseEnabled();
+  }
 
   if (!employees.some((existing) => existing.id === employeeId)) {
     throw new Error('Employee not found');

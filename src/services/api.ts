@@ -31,24 +31,14 @@ const DEFAULT_APP_DATA: AppData = {
   stats: DEFAULT_STATS
 };
 
-function formatLateRemarks(minutesLate: number, date: Date): string | undefined {
-  if (minutesLate <= 0) return undefined;
-  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-
-  if (minutesLate < 60) {
-    return isWeekend ? `${minutesLate} min` : `${minutesLate} min${minutesLate === 1 ? '' : 's'} late`;
+function getClientErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'string' && error.trim()) return error;
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    if (typeof value.message === 'string' && value.message) return value.message;
+    if (typeof value.error === 'string' && value.error) return value.error;
   }
-
-  const hours = Math.floor(minutesLate / 60);
-  const minutes = minutesLate % 60;
-  const hourLabel = `${hours} hr`;
-  const minuteLabel = `${minutes} min`;
-
-  if (isWeekend) {
-    return minutes > 0 ? `${hourLabel} ${minuteLabel}` : hourLabel;
-  }
-
-  return minutes > 0 ? `${hourLabel} ${minuteLabel} late` : `${hourLabel} late`;
+  return fallback;
 }
 
 function loadLocalAppData(): AppData | null {
@@ -107,28 +97,36 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
   if (!response.ok) {
     const error = typeof payload === 'object' && payload !== null && 'error' in payload ? (payload as any).error : response.statusText;
-    throw new Error(error || 'API request failed');
+    throw new Error(getClientErrorMessage(error, 'API request failed'));
   }
 
   return payload as T;
 }
 
 export async function loadAppData(): Promise<AppData> {
-  const response = await fetch(apiUrl('/api/appData'), {
-    cache: 'no-store'
-  });
+  try {
+    const response = await fetch(apiUrl('/api/appData'), {
+      cache: 'no-store'
+    });
 
-  const payload = await parseResponse<Partial<AppData>>(response);
-  const employees = Array.isArray(payload.employees) ? payload.employees : [];
-  const logs = Array.isArray(payload.logs) ? payload.logs : [];
-  const remoteData: AppData = {
-    employees,
-    logs,
-    stats: payload.stats ?? computeStats(employees, logs)
-  };
+    const payload = await parseResponse<Partial<AppData>>(response);
+    const employees = Array.isArray(payload.employees) ? payload.employees : [];
+    const logs = Array.isArray(payload.logs) ? payload.logs : [];
+    const remoteData: AppData = {
+      employees,
+      logs,
+      stats: payload.stats ?? computeStats(employees, logs)
+    };
 
-  saveLocalAppData(remoteData);
-  return remoteData;
+    saveLocalAppData(remoteData);
+    return remoteData;
+  } catch (error) {
+    // Keep the last successfully loaded data on screen if a serverless function
+    // is temporarily unavailable during a page refresh.
+    const cachedData = loadLocalAppData();
+    if (cachedData) return cachedData;
+    throw error;
+  }
 }
 
 export async function checkInEmployee(employeeId: string): Promise<{ employees: Employee[]; logs: CheckInLog[]; stats: DashboardStats; status: CheckInStatus }> {

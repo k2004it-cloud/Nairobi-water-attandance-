@@ -1,4 +1,5 @@
 import { addEmployee, editEmployee, deleteEmployee } from './dataStore.js';
+import { getErrorMessage } from './errorMessage.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method === 'POST') {
@@ -7,7 +8,7 @@ export default async function handler(req: any, res: any) {
       const result = await addEmployee(employee);
       res.status(200).json(result);
     } catch (error) {
-      res.status(400).json({ error: (error as Error).message || 'Unable to add employee' });
+      res.status(400).json({ error: getErrorMessage(error, 'Unable to add employee') });
     }
     return;
   }
@@ -18,7 +19,7 @@ export default async function handler(req: any, res: any) {
       const result = await editEmployee(employee);
       res.status(200).json(result);
     } catch (error) {
-      res.status(400).json({ error: (error as Error).message || 'Unable to update employee' });
+      res.status(400).json({ error: getErrorMessage(error, 'Unable to update employee') });
     }
     return;
   }
@@ -35,7 +36,7 @@ export default async function handler(req: any, res: any) {
       const result = await deleteEmployee(employeeId);
       res.status(200).json(result);
     } catch (error) {
-      res.status(400).json({ error: (error as Error).message || 'Unable to delete employee' });
+      res.status(400).json({ error: getErrorMessage(error, 'Unable to delete employee') });
     }
     return;
   }

@@ -3,6 +3,7 @@ import { AttendanceTable } from './AttendanceTable';
 import { ReportFooter } from './ReportFooter';
 import { ReportSummary } from './ReportSummary';
 import type { CheckInLog, Employee, DashboardStats } from '../../types';
+import { formatNairobiClockTime, formatNairobiDate } from '../../timePolicy';
 
 interface ReportPageProps {
   employees: Employee[];
@@ -12,9 +13,10 @@ interface ReportPageProps {
 }
 
 export function ReportPage({ employees, logs, stats, currentUser }: ReportPageProps) {
-  const reportTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const reportDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const printedOn = new Date().toLocaleString();
+  const now = new Date();
+  const reportTime = formatNairobiClockTime(now);
+  const reportDate = formatNairobiDate(now);
+  const printedOn = `${reportDate}, ${reportTime} (Nairobi time)`;
   const attendancePercentage = stats.totalEmployees > 0 ? `${Math.round((stats.checkedIn / stats.totalEmployees) * 100)}%` : '0%';
 
   return (

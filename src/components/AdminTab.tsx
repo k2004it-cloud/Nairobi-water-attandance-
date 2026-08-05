@@ -10,12 +10,25 @@ import {
 } from 'lucide-react';
 import { Employee, EmployeeStatus } from '../types';
 import { DEPARTMENTS } from '../data';
+import {
+  REGION_OPTIONS,
+  ROLE_DEFINITIONS,
+  createUserAccount,
+  deleteUserAccount,
+  listUsers,
+  lockUser,
+  resetPasswordForUser,
+  unlockUser,
+  updateUserAccount,
+  type AppUser,
+  type SystemRole
+} from '../auth';
 
 interface AdminTabProps {
   employees: Employee[];
-  onAddEmployee: (employee: Employee) => void;
-  onEditEmployee: (employee: Employee) => void;
-  onDeleteEmployee: (id: string) => void;
+  onAddEmployee: (employee: Employee) => Promise<void>;
+  onEditEmployee: (employee: Employee) => Promise<void>;
+  onDeleteEmployee: (id: string) => Promise<void>;
 }
 
 export default function AdminTab({
@@ -50,6 +63,29 @@ export default function AdminTab({
   const [formStatus, setFormStatus] = useState<EmployeeStatus>('Active');
   const [formVerified, setFormVerified] = useState(true);
   const [formError, setFormError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [mandatedUsers, setMandatedUsers] = useState<AppUser[]>(() => listUsers());
+  const [userForm, setUserForm] = useState({
+    fullName: '',
+    username: '',
+    role: 'hr_coordinator' as SystemRole,
+    department: ROLE_DEFINITIONS.hr_coordinator.department,
+    region: 'All Regions',
+    password: ''
+  });
+  const [userFormMessage, setUserFormMessage] = useState<string | null>(null);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<AppUser | null>(null);
+  const [editDraft, setEditDraft] = useState({
+    fullName: '',
+    username: '',
+    role: 'hr_coordinator' as SystemRole,
+    department: ROLE_DEFINITIONS.hr_coordinator.department,
+    region: 'All Regions',
+    status: 'active' as 'active' | 'locked',
+    password: ''
+  });
+  const [userActionMessage, setUserActionMessage] = useState<string | null>(null);
 
   // Delete confirmation modal state
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -164,6 +200,7 @@ export default function AdminTab({
     };
 
     try {
+      setIsSaving(true);
       if (modalMode === 'add') {
         await onAddEmployee(payload);
       } else {
@@ -173,6 +210,8 @@ export default function AdminTab({
       setFormError('');
     } catch (err) {
       setFormError((err as Error).message || 'Unable to save employee.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -181,17 +220,111 @@ export default function AdminTab({
     setIsDeleteConfirmOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteTargetId) {
-      onDeleteEmployee(deleteTargetId);
-      setIsDeleteConfirmOpen(false);
-      setDeleteTargetId(null);
-      // Reset pagination if on empty page
-      const updatedFilteredCount = filteredEmployees.length - 1;
-      const updatedTotalPages = Math.ceil(updatedFilteredCount / itemsPerPage) || 1;
-      if (currentPage > updatedTotalPages) {
-        setCurrentPage(updatedTotalPages);
+      try {
+        await onDeleteEmployee(deleteTargetId);
+        setIsDeleteConfirmOpen(false);
+        setDeleteTargetId(null);
+        // Reset pagination if on empty page
+        const updatedFilteredCount = filteredEmployees.length - 1;
+        const updatedTotalPages = Math.ceil(updatedFilteredCount / itemsPerPage) || 1;
+        if (currentPage > updatedTotalPages) {
+          setCurrentPage(updatedTotalPages);
+        }
+      } catch (err) {
+        setFormError((err as Error).message || 'Unable to delete employee.');
+        setIsDeleteConfirmOpen(false);
       }
+    }
+  };
+
+  const handleCreateMandatedUser = () => {
+    if (!userForm.fullName.trim() || !userForm.username.trim() || !userForm.password.trim()) {
+      setUserFormMessage('Full name, username and password are required.');
+      return;
+    }
+
+    const created = createUserAccount({
+      fullName: userForm.fullName,
+      username: userForm.username,
+      role: userForm.role,
+      department: userForm.department,
+      region: userForm.region,
+      password: userForm.password
+    });
+
+    if (!created) {
+      setUserFormMessage('That username already exists. Please choose a different one.');
+      return;
+    }
+
+    setMandatedUsers(listUsers());
+    setUserForm({
+      fullName: '',
+      username: '',
+      role: 'hr_coordinator',
+      department: ROLE_DEFINITIONS.hr_coordinator.department,
+      region: 'All Regions',
+      password: ''
+    });
+    setUserFormMessage(`Mandated staff account created for ${created.fullName}.`);
+  };
+
+  const openUserEditor = (user: AppUser) => {
+    setSelectedUserForEdit(user);
+    setEditDraft({
+      fullName: user.fullName,
+      username: user.username,
+      role: user.role,
+      department: user.department,
+      region: user.region,
+      status: user.status,
+      password: ''
+    });
+  };
+
+  const handleSaveUserEdits = () => {
+    if (!selectedUserForEdit) return;
+
+    const updated = updateUserAccount(selectedUserForEdit.username, {
+      fullName: editDraft.fullName,
+      role: editDraft.role,
+      department: editDraft.department,
+      region: editDraft.region,
+      status: editDraft.status
+    });
+
+    if (updated) {
+      if (editDraft.password.trim()) {
+        resetPasswordForUser(updated.username, editDraft.password.trim());
+      }
+      setMandatedUsers(listUsers());
+      setSelectedUserForEdit(null);
+      setUserActionMessage(`Account updated for ${updated.fullName}.`);
+      return;
+    }
+
+    setUserActionMessage('Unable to update account.');
+  };
+
+  const handleLockUnlockUser = (user: AppUser) => {
+    if (user.status === 'locked') {
+      unlockUser(user.username);
+      setUserActionMessage(`${user.fullName} unlocked.`);
+    } else {
+      lockUser(user.username);
+      setUserActionMessage(`${user.fullName} locked.`);
+    }
+    setMandatedUsers(listUsers());
+  };
+
+  const handleDeleteUser = (user: AppUser) => {
+    deleteUserAccount(user.username);
+    setMandatedUsers(listUsers());
+    setUserActionMessage(`${user.fullName} account removed.`);
+    if (selectedUserForEdit?.username === user.username) {
+      setSelectedUserForEdit(null);
     }
   };
 
@@ -214,6 +347,176 @@ export default function AdminTab({
           </div>
         </div>
       </section>
+
+      <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center gap-2 text-slate-700">
+          <ShieldAlert className="h-5 w-5" />
+          <h3 className="text-lg font-bold">Mandated staff accounts</h3>
+        </div>
+
+        <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+          <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 border-b border-slate-200 bg-slate-100 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+            <span>Name</span>
+            <span>Username</span>
+            <span>Role</span>
+            <span>Access</span>
+          </div>
+          {mandatedUsers.map((user) => (
+            <div key={user.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.2fr] gap-3 border-b border-slate-200 px-4 py-3 last:border-0 text-sm text-slate-800 items-center">
+              <span className="font-semibold">{user.fullName}</span>
+              <span>{user.username}</span>
+              <span>{ROLE_DEFINITIONS[user.role].label}</span>
+              <span>{ROLE_DEFINITIONS[user.role].permissions.length} scopes</span>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button type="button" onClick={() => openUserEditor(user)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700">Edit</button>
+                <button type="button" onClick={() => handleLockUnlockUser(user)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700">{user.status === 'locked' ? 'Unlock' : 'Lock'}</button>
+                <button type="button" onClick={() => handleDeleteUser(user)} className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-red-700">Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {userActionMessage && (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            {userActionMessage}
+          </div>
+        )}
+
+        {selectedUserForEdit && (
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h4 className="text-lg font-bold text-slate-900">Edit account</h4>
+              <button type="button" onClick={() => setSelectedUserForEdit(null)} className="text-sm font-semibold text-slate-500">Close</button>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+              <label className="block xl:col-span-2">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">Full name</span>
+                <input value={editDraft.fullName} onChange={(event) => setEditDraft((current) => ({ ...current, fullName: event.target.value }))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">Username</span>
+                <input value={editDraft.username} disabled className="w-full rounded-xl border border-slate-300 bg-slate-100 px-3 py-2.5 text-sm text-slate-500" />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">Role</span>
+                <select value={editDraft.role} onChange={(event) => setEditDraft((current) => ({ ...current, role: event.target.value as SystemRole, department: ROLE_DEFINITIONS[event.target.value as SystemRole].department }))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                  {Object.entries(ROLE_DEFINITIONS).map(([role, config]) => (
+                    <option key={role} value={role}>{config.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">Region</span>
+                <select value={editDraft.region} onChange={(event) => setEditDraft((current) => ({ ...current, region: event.target.value }))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                  {REGION_OPTIONS.map((region) => (
+                    <option key={region} value={region}>{region}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-semibold text-slate-700">Password</span>
+                <input type="password" value={editDraft.password} onChange={(event) => setEditDraft((current) => ({ ...current, password: event.target.value }))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" placeholder="New password" />
+              </label>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={handleSaveUserEdits} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500">Save changes</button>
+              <select value={editDraft.status} onChange={(event) => setEditDraft((current) => ({ ...current, status: event.target.value as 'active' | 'locked' }))} className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                <option value="active">Active</option>
+                <option value="locked">Locked</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <label className="block xl:col-span-2">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Full name</span>
+            <input
+              value={userForm.fullName}
+              onChange={(event) => setUserForm((current) => ({ ...current, fullName: event.target.value }))}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              placeholder="Mary Wanjiku"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Username</span>
+            <input
+              value={userForm.username}
+              onChange={(event) => setUserForm((current) => ({ ...current, username: event.target.value }))}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              placeholder="mary.wanjiku"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Role</span>
+            <select
+              value={userForm.role}
+              onChange={(event) => {
+                const nextRole = event.target.value as SystemRole;
+                setUserForm((current) => ({
+                  ...current,
+                  role: nextRole,
+                  department: ROLE_DEFINITIONS[nextRole].department
+                }));
+              }}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            >
+              {Object.entries(ROLE_DEFINITIONS).map(([role, config]) => (
+                <option key={role} value={role}>{config.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Region</span>
+            <select
+              value={userForm.region}
+              onChange={(event) => {
+                setUserForm((current) => ({
+                  ...current,
+                  region: event.target.value
+                }));
+              }}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            >
+              {REGION_OPTIONS.map((region) => (
+                <option key={region} value={region}>{region}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-slate-700">Password</span>
+            <input
+              type="password"
+              value={userForm.password}
+              onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              placeholder="Temporary password"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleCreateMandatedUser}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500"
+          >
+            <UserPlus className="h-4 w-4" />
+            Create mandated account
+          </button>
+          <span className="text-sm text-slate-500">Only mandated staff should have a system login. Check-in staff remain separate employee records.</span>
+        </div>
+
+        {userFormMessage && (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            {userFormMessage}
+          </div>
+        )}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="space-y-4">
@@ -642,16 +945,18 @@ export default function AdminTab({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
+                  disabled={isSaving}
                   className="px-4 py-2 border border-[#c2c6d4] rounded-lg text-sm font-semibold text-[#424752] hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={isSaving}
                   className="px-5 py-2 bg-[#0056b3] hover:bg-[#003f87] text-white font-semibold text-sm rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Save className="w-4.5 h-4.5" />
-                  Save Changes
+                  {isSaving ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>

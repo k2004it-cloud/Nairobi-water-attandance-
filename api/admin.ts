@@ -3,7 +3,7 @@ import {
   setAdminPassword,
   createResetToken,
   resetPasswordWithToken
-} from './dataStore.js';
+} from './adminAuth.js';
 
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
@@ -11,6 +11,8 @@ const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const SMTP_FROM = process.env.SMTP_FROM || process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'no-reply@nairobi-water.app';
+const APP_URL = process.env.APP_URL?.replace(/\/$/, '');
+const IS_LOCAL_DEV = process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'production';
 
 function hasEmailConfig() {
   return Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS);
@@ -37,6 +39,7 @@ async function createTransport() {
 }
 
 function getRequestOrigin(req: any) {
+  if (APP_URL) return APP_URL;
   const protocol = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
   const host = req.headers.host || 'localhost:3000';
   return `${protocol}://${host}`;
@@ -76,7 +79,7 @@ export default async function handler(req: any, res: any) {
     if (action === 'login') {
       const { password } = req.body;
       if (!password) return res.status(400).json({ error: 'Password required' });
-      const ok = verifyAdminPassword(password);
+      const ok = await verifyAdminPassword(password);
       if (!ok) return res.status(401).json({ error: 'Invalid password' });
       return res.json({ success: true });
     }
@@ -84,13 +87,18 @@ export default async function handler(req: any, res: any) {
     if (action === 'change') {
       const { currentPassword, newPassword } = req.body;
       if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Missing parameters' });
-      const result = setAdminPassword(currentPassword, newPassword);
+      const result = await setAdminPassword(currentPassword, newPassword);
       return res.json({ success: true, email: result.email });
     }
 
     if (action === 'forgot') {
-      const email = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local';
-      const token = createResetToken(email);
+      if (!hasEmailConfig() && !IS_LOCAL_DEV) {
+        return res.status(503).json({
+          error: 'Password-reset email is not configured. Set SMTP variables in Vercel Project Settings.'
+        });
+      }
+
+      const { email, token } = await createResetToken();
       const resetLink = `${getRequestOrigin(req)}/admin?resetToken=${encodeURIComponent(token)}`;
 
       if (hasEmailConfig()) {
@@ -99,12 +107,10 @@ export default async function handler(req: any, res: any) {
           return res.json({ success: true, email, message: `A reset link has been sent to ${email}.` });
         } catch (err: any) {
           console.error('Password reset email failed:', err);
-          return res.json({
-            success: true,
-            token,
-            email,
-            message: 'Email provider failed; reset token returned for local testing.'
-          });
+          if (!IS_LOCAL_DEV) {
+            return res.status(503).json({ error: 'Password-reset email could not be sent. Check the SMTP settings and try again.' });
+          }
+          return res.json({ success: true, token, email, message: 'Email provider failed; reset token returned for local testing.' });
         }
       }
 
@@ -119,7 +125,7 @@ export default async function handler(req: any, res: any) {
     if (action === 'reset') {
       const { token, newPassword } = req.body;
       if (!token || !newPassword) return res.status(400).json({ error: 'Missing parameters' });
-      const result = resetPasswordWithToken(token, newPassword);
+      const result = await resetPasswordWithToken(token, newPassword);
       return res.json({ success: true, email: result.email });
     }
 
