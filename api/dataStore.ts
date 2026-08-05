@@ -93,7 +93,8 @@ function normalizeEmployeeRow(row: Record<string, unknown> | null | undefined): 
       ? (statusValue as Employee['status'])
       : 'Active',
     imageUrl: String(row.imageUrl ?? row.image_url ?? ''),
-    verified: Boolean(row.verified ?? row.is_verified ?? true)
+    verified: Boolean(row.verified ?? row.is_verified ?? true),
+    region: typeof row.region === 'string' ? row.region : String(row.region ?? '')
   };
 }
 
@@ -388,7 +389,7 @@ export async function addEmployee(employee: Employee) {
       const adminClient = supabaseAdmin!;
       const { error } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
-        .insert([{ ...employee, created_at: new Date().toISOString() }]);
+        .insert([{ ...employee, region: employee.region ?? '', created_at: new Date().toISOString() }]);
       if (error) {
         throw error;
       }
@@ -428,6 +429,7 @@ export async function editEmployee(employee: Employee) {
           email: employee.email,
           department: employee.department,
           position: employee.position,
+          region: employee.region ?? '',
           status: employee.status,
           imageUrl: employee.imageUrl,
           verified: employee.verified

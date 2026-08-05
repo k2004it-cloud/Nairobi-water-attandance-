@@ -12,6 +12,7 @@ export interface Employee {
   status: EmployeeStatus;
   imageUrl: string;
   verified: boolean;
+  region?: string;
 }
 
 export interface CheckInLog {

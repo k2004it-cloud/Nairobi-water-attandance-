@@ -6,6 +6,7 @@ import {
   Trash2,
   X,
   ShieldAlert,
+  ChevronDown,
   Save
 } from 'lucide-react';
 import { Employee, EmployeeStatus } from '../types';
@@ -57,6 +58,7 @@ export default function AdminTab({
   const [formId, setFormId] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formDept, setFormDept] = useState('Finance');
+  const [formRegion, setFormRegion] = useState('Nairobi');
   const [formPosition, setFormPosition] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('');
   const [formImagePreview, setFormImagePreview] = useState('');
@@ -66,6 +68,7 @@ export default function AdminTab({
   const [isSaving, setIsSaving] = useState(false);
 
   const [mandatedUsers, setMandatedUsers] = useState<AppUser[]>(() => listUsers());
+  const [isMandatedOpen, setIsMandatedOpen] = useState(true);
   const [userForm, setUserForm] = useState({
     fullName: '',
     username: '',
@@ -126,6 +129,7 @@ export default function AdminTab({
     setFormId(`NW-${nextNum}`);
     setFormEmail('');
     setFormDept(departments.length > 1 ? departments[1] : 'Finance');
+    setFormRegion('Nairobi');
     setFormPosition('');
     setFormImageUrl('');
     setFormImagePreview('');
@@ -156,6 +160,7 @@ export default function AdminTab({
     setFormId(emp.id);
     setFormEmail(emp.email);
     setFormDept(emp.department);
+    setFormRegion(emp.region || 'Nairobi');
     setFormPosition(emp.position);
     setFormImageUrl(emp.imageUrl || '');
     setFormImagePreview(emp.imageUrl || '');
@@ -194,6 +199,7 @@ export default function AdminTab({
       email: emailStr,
       department: formDept,
       position: trimmedPosition,
+      region: formRegion,
       status: formStatus,
       imageUrl: formImagePreview || existingEmployee?.imageUrl || '',
       verified: formVerified
@@ -349,32 +355,48 @@ export default function AdminTab({
       </section>
 
       <div className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 text-slate-700">
-          <ShieldAlert className="h-5 w-5" />
-          <h3 className="text-lg font-bold">Mandated staff accounts</h3>
+        <div className="mb-4 flex items-center justify-between gap-3 text-slate-700">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5" />
+            <h3 className="text-lg font-bold">Mandated staff accounts</h3>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsMandatedOpen((open) => !open)}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            <span>{isMandatedOpen ? 'Hide' : 'Show'}</span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${isMandatedOpen ? 'rotate-180' : ''}`} />
+          </button>
         </div>
 
-        <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-          <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 border-b border-slate-200 bg-slate-100 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
-            <span>Name</span>
-            <span>Username</span>
-            <span>Role</span>
-            <span>Access</span>
-          </div>
-          {mandatedUsers.map((user) => (
-            <div key={user.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.2fr] gap-3 border-b border-slate-200 px-4 py-3 last:border-0 text-sm text-slate-800 items-center">
-              <span className="font-semibold">{user.fullName}</span>
-              <span>{user.username}</span>
-              <span>{ROLE_DEFINITIONS[user.role].label}</span>
-              <span>{ROLE_DEFINITIONS[user.role].permissions.length} scopes</span>
-              <div className="flex flex-wrap justify-end gap-2">
-                <button type="button" onClick={() => openUserEditor(user)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700">Edit</button>
-                <button type="button" onClick={() => handleLockUnlockUser(user)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700">{user.status === 'locked' ? 'Unlock' : 'Lock'}</button>
-                <button type="button" onClick={() => handleDeleteUser(user)} className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-red-700">Delete</button>
-              </div>
+        {isMandatedOpen && (
+          <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 border-b border-slate-200 bg-slate-100 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600">
+              <span>Name</span>
+              <span>Username</span>
+              <span>Role</span>
+              <span>Access</span>
             </div>
-          ))}
-        </div>
+            {mandatedUsers.length > 0 ? (
+              mandatedUsers.map((user) => (
+                <div key={user.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.2fr] gap-3 border-b border-slate-200 px-4 py-3 last:border-0 text-sm text-slate-800 items-center">
+                  <span className="font-semibold">{user.fullName}</span>
+                  <span>{user.username}</span>
+                  <span>{ROLE_DEFINITIONS[user.role].label}</span>
+                  <span>{ROLE_DEFINITIONS[user.role].permissions.length} scopes</span>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button type="button" onClick={() => openUserEditor(user)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700">Edit</button>
+                    <button type="button" onClick={() => handleLockUnlockUser(user)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-700">{user.status === 'locked' ? 'Unlock' : 'Lock'}</button>
+                    <button type="button" onClick={() => handleDeleteUser(user)} className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-red-700">Delete</button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="px-4 py-6 text-sm text-slate-600">No mandated staff accounts found.</div>
+            )}
+          </div>
+        )}
 
         {userActionMessage && (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
@@ -625,6 +647,9 @@ export default function AdminTab({
                   Department
                 </th>
                 <th className="px-6 py-4 text-xs font-bold text-[#424752] uppercase tracking-wider">
+                  Region
+                </th>
+                <th className="px-6 py-4 text-xs font-bold text-[#424752] uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-4 text-xs font-bold text-[#424752] uppercase tracking-wider text-right">
@@ -672,6 +697,11 @@ export default function AdminTab({
                     <td className="px-6 py-4">
                       <span className="bg-[#ebeeed] px-3 py-1 rounded-full text-xs font-semibold text-[#424752]">
                         {emp.department}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="bg-[#eef2ff] px-3 py-1 rounded-full text-xs font-semibold text-[#1e40af]">
+                        {emp.region || 'Nairobi'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -883,7 +913,7 @@ export default function AdminTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
                   <label className="text-xs font-bold text-[#424752] uppercase block mb-1">
                     Department
@@ -905,6 +935,23 @@ export default function AdminTab({
                   <p className="mt-2 text-xs text-[#727784]">
                     Type to select an existing department or enter a new one. New entries are preserved for future adds.
                   </p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[#424752] uppercase block mb-1">
+                    Region
+                  </label>
+                  <select
+                    value={formRegion}
+                    onChange={(e) => setFormRegion(e.target.value)}
+                    className="w-full h-10 px-3 border border-[#c2c6d4] rounded-lg focus:ring-2 focus:ring-[#335f9d] outline-none text-sm text-[#181c1c] cursor-pointer"
+                  >
+                    <option value="Nairobi">Nairobi</option>
+                    <option value="Central">Central</option>
+                    <option value="Coast">Coast</option>
+                    <option value="Western">Western</option>
+                    <option value="Rift Valley">Rift Valley</option>
+                    <option value="All Regions">All Regions</option>
+                  </select>
                 </div>
                 <div>
                   <label className="text-xs font-bold text-[#424752] uppercase block mb-1">
