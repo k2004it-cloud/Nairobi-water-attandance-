@@ -253,20 +253,28 @@ export async function checkIn(employeeId: string) {
         throw new Error(employeeError?.message || 'Employee not found');
       }
 
+      const now = new Date();
+      const todayKey = getNairobiDateKey(now);
+      const [year, month, day] = todayKey.split('-');
+      const todayStart = new Date(`${year}-${month}-${day}T00:00:00+03:00`).toISOString();
+      const todayEnd = new Date(`${year}-${month}-${day}T00:00:00+03:00`);
+      todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+
       const { data: existingLogs, error: existingError } = await adminClient
         .from(SUPABASE_CHECKINS_TABLE)
         .select('id')
-        .eq('employeeId', employeeId);
+        .eq('employeeId', employeeId)
+        .gte('created_at', todayStart)
+        .lt('created_at', todayEnd);
 
       if (existingError) {
         throw existingError;
       }
 
       if (existingLogs && existingLogs.length > 0) {
-        throw new Error('Employee has already checked in');
+        throw new Error('Employee has already checked in for today');
       }
 
-      const now = new Date();
       const status = getSystemCheckInStatus(now);
       if (status === 'CLOSED') {
         throw new Error('Check-in is closed for today');
