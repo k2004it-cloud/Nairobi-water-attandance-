@@ -34,6 +34,7 @@ import AttendanceDetailPage from './components/AttendanceDetailPage';
 import DashboardTab from './components/DashboardTab';
 import AdminTab from './components/AdminTab';
 import ReportsTab from './components/ReportsTab';
+import RegionTab from './components/RegionTab';
 import SupportTab from './components/SupportTab';
 import {
   authenticateUser,
@@ -41,6 +42,7 @@ import {
   getCurrentUser,
   getVisibleNavigation,
   isGlobalRegionScope,
+  matchesRegionScope,
   setCurrentUser,
   type AppUser,
   type PermissionName,
@@ -71,14 +73,17 @@ const AVATAR_BG_COLORS = [
   'bg-amber-600'
 ];
 
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local';
+const DEFAULT_ACTIVE_REGION = (import.meta.env.VITE_DEFAULT_REGION || 'All Regions') as string;
+const FIXED_ACTIVE_REGION = (import.meta.env.VITE_FIXED_REGION || DEFAULT_ACTIVE_REGION) as string;
+
 const NAV_ITEMS: { id: Tab; label: string; Icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'admin', label: 'Admin', Icon: ShieldCheck },
   { id: 'reports', label: 'Reports', Icon: FileText },
-  { id: 'support', label: 'Support', Icon: ShieldCheck }
+  { id: 'support', label: 'Support', Icon: ShieldCheck },
+  { id: 'region', label: 'Region', Icon: LayoutDashboard }
 ];
-
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local';
 
 const DEFAULT_APP_DATA = {
   employees: [] as Employee[],
@@ -142,7 +147,14 @@ export default function App() {
     getSystemCheckInStatus(new Date())
   );
   const [pagePath, setPagePath] = useState<'reception' | 'admin'>(initialPagePath);
-  const [currentUser, setCurrentUserState] = useState<AppUser | null>(null);
+  const [currentUser, setCurrentUserState] = useState<AppUser | null>(() => getCurrentUser());
+  const [activeRegion, setActiveRegion] = useState<string>(() => {
+    if (typeof window === 'undefined') return DEFAULT_ACTIVE_REGION;
+    return window.localStorage.getItem('nw-active-region') || DEFAULT_ACTIVE_REGION;
+  });
+
+  const effectiveRegion = FIXED_ACTIVE_REGION !== 'All Regions' ? FIXED_ACTIVE_REGION : activeRegion;
+  const isRegionFixedDeployment = FIXED_ACTIVE_REGION !== 'All Regions';
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() =>
     typeof window !== 'undefined' && window.localStorage.getItem('nw-admin-auth') === 'true'
   );
@@ -175,29 +187,17 @@ export default function App() {
   const isUserAuthenticated = Boolean(currentUser) || isAdminAuthenticated;
   const authEnabledTabs = NAV_ITEMS.filter((item) => visibleTabs.includes(item.id));
 
-  const scopedEmployees = currentUser && !isGlobalRegionScope(currentUser)
-    ? employees.filter((employee) => {
-        const region = (employee as Employee & { region?: string }).region;
-        if (!region) return true;
-        return region === currentUser.region;
-      })
-    : employees;
+  const scopedEmployees = currentUser && !isGlobalRegionScope(currentUser) && !isRegionFixedDeployment
+    ? employees.filter((employee) => matchesRegionScope(currentUser, employee.region))
+    : employees.filter((employee) => effectiveRegion === 'All Regions' || employee.region === effectiveRegion);
 
-  const scopedLogs = currentUser && !isGlobalRegionScope(currentUser)
-    ? todayLogs.filter((log) => {
-        const region = (log as CheckInLog & { region?: string }).region;
-        if (!region) return true;
-        return region === currentUser.region;
-      })
-    : todayLogs;
+  const scopedLogs = currentUser && !isGlobalRegionScope(currentUser) && !isRegionFixedDeployment
+    ? todayLogs.filter((log) => matchesRegionScope(currentUser, (log as CheckInLog & { region?: string }).region))
+    : todayLogs.filter((log) => effectiveRegion === 'All Regions' || (log as CheckInLog & { region?: string }).region === effectiveRegion);
 
-  const reportLogs = currentUser && !isGlobalRegionScope(currentUser)
-    ? logs.filter((log) => {
-        const region = (log as CheckInLog & { region?: string }).region;
-        if (!region) return true;
-        return region === currentUser.region;
-      })
-    : logs;
+  const reportLogs = currentUser && !isGlobalRegionScope(currentUser) && !isRegionFixedDeployment
+    ? logs.filter((log) => matchesRegionScope(currentUser, (log as CheckInLog & { region?: string }).region))
+    : logs.filter((log) => effectiveRegion === 'All Regions' || (log as CheckInLog & { region?: string }).region === effectiveRegion);
 
   const scopedStats = currentUser && !isGlobalRegionScope(currentUser)
     ? {
@@ -227,7 +227,11 @@ export default function App() {
   }[currentUser.role] : 'bg-white/10 text-white border-white/20';
   const showAdminHeader = isAdminPage && isUserAuthenticated;
   const headerStatusLabel = showAdminHeader ? (currentUser ? currentUser.fullName : 'System Admin') : 'Reception Desk';
-  const headerStatusSubLabel = showAdminHeader ? currentUserRoleLabel : 'Reception';
+  const headerStatusSubLabel = showAdminHeader
+    ? `${currentUserRoleLabel}${currentUser && !isGlobalRegionScope(currentUser) ? ` • ${currentUser.region}` : activeRegion !== 'All Regions' ? ` • ${activeRegion}` : ''}`
+    : activeRegion !== 'All Regions'
+      ? `Reception • ${activeRegion}`
+      : 'Reception';
 
   const handleShowDetail = (section: 'roster' | 'active' | 'recorded' | 'pending') => {
     setDetailSection(section);
@@ -314,6 +318,11 @@ export default function App() {
       }
 
       setCurrentUserState(user);
+      setCurrentUser(user);
+      setActiveRegion(user.region || 'All Regions');
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('nw-active-region', user.region || 'All Regions');
+      }
       setIsAdminAuthenticated(user.role === 'system_admin');
       if (!user || user.role !== 'system_admin') {
         window.localStorage.removeItem('nw-admin-auth');
@@ -328,8 +337,12 @@ export default function App() {
     setIsAdminAuthenticated(false);
     setCurrentUserState(null);
     setCurrentUser(null);
-    window.localStorage.removeItem('nw-admin-auth');
-    window.localStorage.removeItem('nw-current-user');
+    setActiveRegion(DEFAULT_ACTIVE_REGION);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('nw-admin-auth');
+      window.localStorage.removeItem('nw-current-user');
+      window.localStorage.removeItem('nw-active-region');
+    }
     setError(null);
     setAdminPassword('');
     setLoginUsername('');
@@ -596,8 +609,9 @@ export default function App() {
         <div className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 py-6 pb-28 sm:px-6 sm:py-8">
           {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection === null && (
             <AttendanceTab
-              employees={employees}
-              logs={todayLogs}
+              employees={scopedEmployees}
+              logs={scopedLogs}
+              activeRegion={activeRegion}
               onCheckIn={handleCheckIn}
               onNavigateToTab={setActiveTab}
               onShowDetail={handleShowDetail}
@@ -609,8 +623,8 @@ export default function App() {
           {activeTab === 'attendance' && (isReceptionPage || (isAdminPage && isAdminAuthenticated)) && detailSection !== null && (
             <AttendanceDetailPage
               section={detailSection}
-              employees={employees}
-              logs={todayLogs}
+              employees={scopedEmployees}
+              logs={scopedLogs}
               checkedInIds={checkedInIds}
               onBack={handleCloseDetail}
             />
@@ -618,9 +632,9 @@ export default function App() {
 
           {activeTab === 'reports' && isReceptionPage && (
             <ReportsTab
-              employees={employees}
-              logs={logs}
-              stats={stats}
+              employees={scopedEmployees}
+              logs={reportLogs}
+              stats={scopedStats}
             />
           )}
 
@@ -941,6 +955,22 @@ export default function App() {
                 employees={scopedEmployees}
                 logs={reportLogs}
                 stats={scopedStats}
+              />
+            )}
+
+            {activeTab === 'region' && (
+              <RegionTab
+                currentUser={currentUser}
+                activeRegion={effectiveRegion}
+                fixedRegion={FIXED_ACTIVE_REGION}
+                employees={employees}
+                onChangeRegion={(region) => {
+                  if (isRegionFixedDeployment) return;
+                  setActiveRegion(region);
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.setItem('nw-active-region', region);
+                  }
+                }}
               />
             )}
 

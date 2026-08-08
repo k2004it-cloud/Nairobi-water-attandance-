@@ -17,6 +17,7 @@ import { DEPARTMENTS } from '../data';
 interface AttendanceTabProps {
   employees: Employee[];
   logs: CheckInLog[];
+  activeRegion: string;
   onCheckIn: (employeeId: string) => Promise<{ success: boolean; status?: CheckInStatus }>;
   onNavigateToTab: (tab: Tab) => void;
   onShowDetail: (section: 'roster' | 'active' | 'recorded' | 'pending') => void;
@@ -63,6 +64,7 @@ function employeeMatchesSearch(employee: Employee, query: string) {
 export default function AttendanceTab({
   employees,
   logs,
+  activeRegion,
   onCheckIn,
   onNavigateToTab,
   onShowDetail,
@@ -160,12 +162,25 @@ export default function AttendanceTab({
             <ShieldCheck className="h-4 w-4" />
             Reception desk
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight text-[#003f87] sm:text-4xl">
-            Staff Attendance Check-In
-          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-3xl font-extrabold tracking-tight text-[#003f87] sm:text-4xl">
+              Staff Attendance Check-In
+            </h2>
+            {activeRegion !== 'All Regions' && (
+              <div className="rounded-2xl border border-blue-100/80 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#003f87] shadow-sm">
+                Region: {activeRegion}
+              </div>
+            )}
+          </div>
           <p className="mt-2 text-sm font-medium leading-6 text-[#424752]">
             Search staff records, verify the employee profile, and submit daily attendance from one focused console.
           </p>
+          <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50/80 p-4 text-sm text-blue-900 shadow-sm">
+            <p className="font-semibold">This reception desk is configured for <span className="font-black">{activeRegion}</span>.</p>
+            <p className="mt-1 text-xs text-blue-800/90">
+              Only staff belonging to this region should check in here. If the region is wrong, update the deployed region setting or check the admin region selector.
+            </p>
+          </div>
         </div>
 
         <div className={`rounded-2xl border px-4 py-3 text-right shadow-lg ${STATUS_BADGE_CLASSES[systemCheckInStatus]} bg-white/85 backdrop-blur-sm`}>
