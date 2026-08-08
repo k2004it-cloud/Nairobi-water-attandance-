@@ -185,7 +185,13 @@ export default function App() {
   const effectiveRole = currentUser?.role ?? (isAdminAuthenticated ? 'system_admin' : null);
   const visibleTabs = getVisibleNavigation(effectiveRole);
   const isUserAuthenticated = Boolean(currentUser) || isAdminAuthenticated;
-  const authEnabledTabs = NAV_ITEMS.filter((item) => visibleTabs.includes(item.id));
+  const authEnabledTabs = NAV_ITEMS.filter((item) => visibleTabs.includes(item.id) && !(item.id === 'region' && isRegionFixedDeployment));
+
+  useEffect(() => {
+    if (isRegionFixedDeployment && activeTab === 'region') {
+      setActiveTab(isAdminPage ? 'dashboard' : 'attendance');
+    }
+  }, [isRegionFixedDeployment, activeTab, isAdminPage]);
 
   const scopedEmployees = currentUser && !isGlobalRegionScope(currentUser) && !isRegionFixedDeployment
     ? employees.filter((employee) => matchesRegionScope(currentUser, employee.region))
