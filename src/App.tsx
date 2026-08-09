@@ -28,6 +28,7 @@ import {
   adminForgotPassword,
   adminResetPassword
 } from './services/api';
+import { clearCentralSession, loginCentralUser } from './services/userApi';
 
 import AttendanceTab from './components/AttendanceTab';
 import AttendanceDetailPage from './components/AttendanceDetailPage';
@@ -332,9 +333,21 @@ export default function App() {
     }
 
     setLoginLoading(true);
-    window.setTimeout(() => {
-      ensureDefaultUsers();
-      const user = authenticateUser(loginUsername, loginPassword);
+    (async () => {
+      let user: AppUser | null = null;
+      try {
+        user = await loginCentralUser(loginUsername, loginPassword);
+      } catch (centralError) {
+        if (import.meta.env.DEV) {
+          ensureDefaultUsers();
+          user = authenticateUser(loginUsername, loginPassword);
+        }
+        if (!user) {
+          setLoginError((centralError as Error).message || 'Invalid username or password.');
+          setLoginLoading(false);
+          return;
+        }
+      }
       if (!user) {
         setLoginError('Invalid username or password.');
         setLoginLoading(false);
@@ -359,13 +372,14 @@ export default function App() {
       setPagePath('admin');
       setActiveTab(user.role === 'it_technician' ? 'support' : user.role === 'secretary' ? 'attendance' : 'dashboard');
       setLoginLoading(false);
-    }, 2000);
+    })();
   };
 
   const handleAdminLogout = () => {
     setIsAdminAuthenticated(false);
     setCurrentUserState(null);
     setCurrentUser(null);
+    clearCentralSession();
     setActiveRegion(isRegionFixedDeployment ? FIXED_ACTIVE_REGION : DEFAULT_ACTIVE_REGION);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('nw-admin-auth');

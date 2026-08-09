@@ -4,7 +4,7 @@ import { REGION_OPTIONS, isGlobalRegionScope, type AppUser } from '../auth';
 import type { Employee } from '../types';
 
 interface RegionTabProps {
-  currentUser: AppUserType | null;
+  currentUser: AppUser | null;
   activeRegion: string;
   fixedRegion: string;
   employees: Employee[];

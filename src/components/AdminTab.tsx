@@ -14,16 +14,11 @@ import { DEPARTMENTS } from '../data';
 import {
   REGION_OPTIONS,
   ROLE_DEFINITIONS,
-  createUserAccount,
-  deleteUserAccount,
   listUsers,
-  lockUser,
-  resetPasswordForUser,
-  unlockUser,
-  updateUserAccount,
   type AppUser,
   type SystemRole
 } from '../auth';
+import { createCentralUser, deleteCentralUser, listCentralUsers, setCentralUserStatus, updateCentralUser } from '../services/userApi';
 
 interface AdminTabProps {
   employees: Employee[];
@@ -97,6 +92,20 @@ export default function AdminTab({
     password: ''
   });
   const [userActionMessage, setUserActionMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listCentralUsers()
+      .then((users) => {
+        if (!cancelled) setMandatedUsers(users);
+      })
+      .catch(() => {
+        // Local development can continue with seeded browser users before migration.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Delete confirmation modal state
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -253,7 +262,7 @@ export default function AdminTab({
     }
   };
 
-  const handleCreateMandatedUser = () => {
+  const handleCreateMandatedUser = async () => {
     if (!userForm.fullName.trim() || !userForm.username.trim() || !userForm.password.trim()) {
       setUserFormMessage('Full name, username and password are required.');
       return;
@@ -264,21 +273,27 @@ export default function AdminTab({
       return;
     }
 
-    const created = createUserAccount({
-      fullName: userForm.fullName,
-      username: userForm.username,
-      role: userForm.role,
-      department: userForm.department,
-      region: isBranchAdmin ? managedRegion : userForm.region,
-      password: userForm.password
-    });
+    let created: AppUser | null = null;
+    try {
+      created = await createCentralUser({
+        fullName: userForm.fullName,
+        username: userForm.username,
+        role: userForm.role,
+        department: userForm.department,
+        region: isBranchAdmin ? managedRegion : userForm.region,
+        password: userForm.password
+      });
+    } catch (error) {
+      setUserFormMessage((error as Error).message || 'Unable to create central account.');
+      return;
+    }
 
     if (!created) {
       setUserFormMessage('That username already exists. Please choose a different one.');
       return;
     }
 
-    setMandatedUsers(listUsers());
+    setMandatedUsers((await listCentralUsers()).filter((user) => isSystemAdmin || user.region === managedRegion));
     setUserForm({
       fullName: '',
       username: '',
@@ -303,7 +318,7 @@ export default function AdminTab({
     });
   };
 
-  const handleSaveUserEdits = () => {
+  const handleSaveUserEdits = async () => {
     if (!selectedUserForEdit) return;
 
     if (isBranchAdmin && (
@@ -317,44 +332,48 @@ export default function AdminTab({
       return;
     }
 
-    const updated = updateUserAccount(selectedUserForEdit.username, {
-      fullName: editDraft.fullName,
-      role: editDraft.role,
-      department: editDraft.department,
-      region: isBranchAdmin ? managedRegion : editDraft.region,
-      status: editDraft.status
-    });
-
-    if (updated) {
-      if (editDraft.password.trim()) {
-        resetPasswordForUser(updated.username, editDraft.password.trim());
-      }
-      setMandatedUsers(listUsers());
+    try {
+      const updated = await updateCentralUser({
+        username: selectedUserForEdit.username,
+        fullName: editDraft.fullName,
+        role: editDraft.role,
+        department: editDraft.department,
+        region: isBranchAdmin ? managedRegion : editDraft.region,
+        status: editDraft.status,
+        password: editDraft.password.trim() || undefined
+      });
+      setMandatedUsers(await listCentralUsers());
       setSelectedUserForEdit(null);
       setUserActionMessage(`Account updated for ${updated.fullName}.`);
       return;
+    } catch (error) {
+      setUserActionMessage((error as Error).message || 'Unable to update central account.');
     }
-
-    setUserActionMessage('Unable to update account.');
   };
 
-  const handleLockUnlockUser = (user: AppUser) => {
+  const handleLockUnlockUser = async (user: AppUser) => {
+    const nextStatus = user.status === 'locked' ? 'active' : 'locked';
     if (user.status === 'locked') {
-      unlockUser(user.username);
       setUserActionMessage(`${user.fullName} unlocked.`);
     } else {
-      lockUser(user.username);
       setUserActionMessage(`${user.fullName} locked.`);
     }
-    setMandatedUsers(listUsers());
+    try {
+      await setCentralUserStatus(user.username, nextStatus);
+      setMandatedUsers(await listCentralUsers());
+    } catch (error) {
+      setUserActionMessage((error as Error).message || 'Unable to update central account.');
+    }
   };
 
-  const handleDeleteUser = (user: AppUser) => {
-    deleteUserAccount(user.username);
-    setMandatedUsers(listUsers());
-    setUserActionMessage(`${user.fullName} account removed.`);
-    if (selectedUserForEdit?.username === user.username) {
-      setSelectedUserForEdit(null);
+  const handleDeleteUser = async (user: AppUser) => {
+    try {
+      await deleteCentralUser(user.username);
+      setMandatedUsers(await listCentralUsers());
+      setUserActionMessage(`${user.fullName} account removed.`);
+      if (selectedUserForEdit?.username === user.username) setSelectedUserForEdit(null);
+    } catch (error) {
+      setUserActionMessage((error as Error).message || 'Unable to remove central account.');
     }
   };
 
