@@ -64,9 +64,9 @@ export const ROLE_DEFINITIONS: Record<SystemRole, { label: string; department: s
     permissions: ['attendance:view', 'reports:view']
   },
   regional_manager: {
-    label: 'Regional Manager',
+    label: 'Branch Admin',
     department: 'Regional Office',
-    permissions: ['attendance:view', 'reports:view', 'reports:export', 'dashboard:view']
+    permissions: ['attendance:view', 'attendance:checkin', 'reports:view', 'reports:export', 'dashboard:view', 'employees:manage', 'users:manage']
   },
   it_technician: {
     label: 'IT Technician',
@@ -469,7 +469,7 @@ export function getVisibleNavigation(role: SystemRole | null): Array<'attendance
     case 'secretary':
       return ['attendance', 'reports', 'region'];
     case 'regional_manager':
-      return ['dashboard', 'reports', 'region'];
+      return ['attendance', 'dashboard', 'admin', 'reports', 'region'];
     case 'it_technician':
       return ['support', 'region'];
     default:

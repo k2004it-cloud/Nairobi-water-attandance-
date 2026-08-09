@@ -27,6 +27,7 @@ import {
 
 interface AdminTabProps {
   employees: Employee[];
+  currentUser: AppUser | null;
   onAddEmployee: (employee: Employee) => Promise<void>;
   onEditEmployee: (employee: Employee) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
@@ -34,10 +35,17 @@ interface AdminTabProps {
 
 export default function AdminTab({
   employees,
+  currentUser,
   onAddEmployee,
   onEditEmployee,
   onDeleteEmployee
 }: AdminTabProps) {
+    const isSystemAdmin = currentUser?.role === 'system_admin';
+    const isBranchAdmin = currentUser?.role === 'regional_manager';
+    const managedRegion = isBranchAdmin ? currentUser.region : 'All Regions';
+    const manageableRoles = Object.entries(ROLE_DEFINITIONS).filter(([role]) =>
+      isSystemAdmin ? true : role !== 'system_admin' && role !== 'regional_manager'
+    );
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All Departments');
   const [departments, setDepartments] = useState<string[]>([
@@ -129,7 +137,7 @@ export default function AdminTab({
     setFormId(`NW-${nextNum}`);
     setFormEmail('');
     setFormDept(departments.length > 1 ? departments[1] : 'Finance');
-    setFormRegion('Nairobi');
+    setFormRegion(managedRegion === 'All Regions' ? 'Nairobi' : managedRegion);
     setFormPosition('');
     setFormImageUrl('');
     setFormImagePreview('');
@@ -160,7 +168,7 @@ export default function AdminTab({
     setFormId(emp.id);
     setFormEmail(emp.email);
     setFormDept(emp.department);
-    setFormRegion(emp.region || 'Nairobi');
+    setFormRegion(emp.region || (managedRegion === 'All Regions' ? 'Nairobi' : managedRegion));
     setFormPosition(emp.position);
     setFormImageUrl(emp.imageUrl || '');
     setFormImagePreview(emp.imageUrl || '');
@@ -199,7 +207,7 @@ export default function AdminTab({
       email: emailStr,
       department: formDept,
       position: trimmedPosition,
-      region: formRegion,
+      region: isBranchAdmin ? managedRegion : formRegion,
       status: formStatus,
       imageUrl: formImagePreview || existingEmployee?.imageUrl || '',
       verified: formVerified
@@ -251,12 +259,17 @@ export default function AdminTab({
       return;
     }
 
+    if (isBranchAdmin && (userForm.role === 'system_admin' || userForm.role === 'regional_manager')) {
+      setUserFormMessage('Only the System Admin can create or assign Branch Admin accounts.');
+      return;
+    }
+
     const created = createUserAccount({
       fullName: userForm.fullName,
       username: userForm.username,
       role: userForm.role,
       department: userForm.department,
-      region: userForm.region,
+      region: isBranchAdmin ? managedRegion : userForm.region,
       password: userForm.password
     });
 
@@ -293,11 +306,22 @@ export default function AdminTab({
   const handleSaveUserEdits = () => {
     if (!selectedUserForEdit) return;
 
+    if (isBranchAdmin && (
+      selectedUserForEdit.region !== managedRegion ||
+      selectedUserForEdit.role === 'system_admin' ||
+      selectedUserForEdit.role === 'regional_manager' ||
+      editDraft.role === 'system_admin' ||
+      editDraft.role === 'regional_manager'
+    )) {
+      setUserActionMessage('Branch Admins can only manage non-admin accounts in their own branch.');
+      return;
+    }
+
     const updated = updateUserAccount(selectedUserForEdit.username, {
       fullName: editDraft.fullName,
       role: editDraft.role,
       department: editDraft.department,
-      region: editDraft.region,
+      region: isBranchAdmin ? managedRegion : editDraft.region,
       status: editDraft.status
     });
 
@@ -378,8 +402,8 @@ export default function AdminTab({
               <span>Role</span>
               <span>Access</span>
             </div>
-            {mandatedUsers.length > 0 ? (
-              mandatedUsers.map((user) => (
+            {mandatedUsers.filter((user) => isSystemAdmin || user.region === managedRegion).length > 0 ? (
+              mandatedUsers.filter((user) => isSystemAdmin || user.region === managedRegion).map((user) => (
                 <div key={user.id} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1.2fr] gap-3 border-b border-slate-200 px-4 py-3 last:border-0 text-sm text-slate-800 items-center">
                   <span className="font-semibold">{user.fullName}</span>
                   <span>{user.username}</span>
@@ -422,7 +446,7 @@ export default function AdminTab({
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-slate-700">Role</span>
                 <select value={editDraft.role} onChange={(event) => setEditDraft((current) => ({ ...current, role: event.target.value as SystemRole, department: ROLE_DEFINITIONS[event.target.value as SystemRole].department }))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                  {Object.entries(ROLE_DEFINITIONS).map(([role, config]) => (
+                    {manageableRoles.map(([role, config]) => (
                     <option key={role} value={role}>{config.label}</option>
                   ))}
                 </select>
@@ -430,7 +454,7 @@ export default function AdminTab({
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-slate-700">Region</span>
                 <select value={editDraft.region} onChange={(event) => setEditDraft((current) => ({ ...current, region: event.target.value }))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-                  {REGION_OPTIONS.map((region) => (
+                  {(isBranchAdmin ? [managedRegion] : REGION_OPTIONS).map((region) => (
                     <option key={region} value={region}>{region}</option>
                   ))}
                 </select>
@@ -485,7 +509,7 @@ export default function AdminTab({
               }}
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             >
-              {Object.entries(ROLE_DEFINITIONS).map(([role, config]) => (
+              {manageableRoles.map(([role, config]) => (
                 <option key={role} value={role}>{config.label}</option>
               ))}
             </select>
@@ -503,7 +527,7 @@ export default function AdminTab({
               }}
               className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
             >
-              {REGION_OPTIONS.map((region) => (
+              {(isBranchAdmin ? [managedRegion] : REGION_OPTIONS).map((region) => (
                 <option key={region} value={region}>{region}</option>
               ))}
             </select>
@@ -942,15 +966,15 @@ export default function AdminTab({
                   </label>
                   <select
                     value={formRegion}
-                    onChange={(e) => setFormRegion(e.target.value)}
+                    onChange={(e) => {
+                      if (!isBranchAdmin) setFormRegion(e.target.value);
+                    }}
+                    disabled={isBranchAdmin}
                     className="w-full h-10 px-3 border border-[#c2c6d4] rounded-lg focus:ring-2 focus:ring-[#335f9d] outline-none text-sm text-[#181c1c] cursor-pointer"
                   >
-                    <option value="Nairobi">Nairobi</option>
-                    <option value="Central">Central</option>
-                    <option value="Coast">Coast</option>
-                    <option value="Western">Western</option>
-                    <option value="Rift Valley">Rift Valley</option>
-                    <option value="All Regions">All Regions</option>
+                    {(isBranchAdmin ? [managedRegion] : REGION_OPTIONS.filter((region) => region !== 'All Regions')).map((region) => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
                   </select>
                 </div>
                 <div>

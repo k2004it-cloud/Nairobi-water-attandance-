@@ -974,7 +974,8 @@ export default function App() {
 
             {activeTab === 'admin' && (
               <AdminTab
-                employees={employees}
+                employees={scopedEmployees}
+                currentUser={currentUser}
                 onAddEmployee={handleAddEmployee}
                 onEditEmployee={handleEditEmployee}
                 onDeleteEmployee={handleDeleteEmployee}
