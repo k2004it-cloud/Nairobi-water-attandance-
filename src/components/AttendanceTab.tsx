@@ -43,6 +43,15 @@ const EMPLOYEE_STATUS_CLASSES: Record<Employee['status'], string> = {
   'On Leave': 'bg-amber-50 text-amber-800 border-amber-200'
 };
 
+const REGION_BADGE_STYLES: Record<string, string> = {
+  'All Regions': 'border-slate-200 bg-slate-50 text-slate-700',
+  Nairobi: 'border-blue-200 bg-blue-50 text-[#003f87]',
+  Central: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  Coast: 'border-amber-200 bg-amber-50 text-amber-800',
+  Western: 'border-purple-200 bg-purple-50 text-purple-800',
+  'Rift Valley': 'border-rose-200 bg-rose-50 text-rose-800'
+};
+
 function getInitials(name: string) {
   return name
     .trim()
@@ -91,6 +100,7 @@ export default function AttendanceTab({
     });
   }, [employees, searchQuery, selectedDept]);
 
+  const regionBadgeClass = REGION_BADGE_STYLES[activeRegion] ?? 'border-slate-200 bg-slate-50 text-slate-700';
   const activeStaffCount = employees.filter((employee) => employee.status === 'Active').length;
   const pendingStaffCount = employees.filter(
     (employee) => employee.status === 'Active' && !checkedInIds.has(employee.id)
@@ -166,17 +176,17 @@ export default function AttendanceTab({
             <h2 className="text-3xl font-extrabold tracking-tight text-[#003f87] sm:text-4xl">
               Staff Attendance Check-In
             </h2>
-            {activeRegion !== 'All Regions' && (
-              <div className="rounded-2xl border border-blue-100/80 bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#003f87] shadow-sm">
-                Region: {activeRegion}
-              </div>
-            )}
+            <div className={`rounded-2xl border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] shadow-sm ${regionBadgeClass}`}>
+              {activeRegion === 'All Regions' ? 'All regions' : `Reception region • ${activeRegion}`}
+            </div>
           </div>
           <p className="mt-2 text-sm font-medium leading-6 text-[#424752]">
             Search staff records, verify the employee profile, and submit daily attendance from one focused console.
           </p>
           <div className="mt-4 rounded-3xl border border-blue-100 bg-blue-50/80 p-4 text-sm text-blue-900 shadow-sm">
-            <p className="font-semibold">This reception desk is configured for <span className="font-black">{activeRegion}</span>.</p>
+            <p className="font-semibold">
+              This reception desk is currently scoped to <span className="font-black">{activeRegion}</span>.
+            </p>
             <p className="mt-1 text-xs text-blue-800/90">
               Only staff belonging to this region should check in here. If the region is wrong, update the deployed region setting or check the admin region selector.
             </p>

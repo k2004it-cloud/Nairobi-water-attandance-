@@ -1,7 +1,7 @@
 export type EmployeeStatus = 'Active' | 'Inactive' | 'On Leave';
 export type CheckInStatus = 'ON TIME' | 'GRACE PERIOD' | 'LATE';
 export type AttendanceWindowStatus = CheckInStatus | 'CLOSED';
-export type Tab = 'attendance' | 'dashboard' | 'admin' | 'reports' | 'support';
+export type Tab = 'attendance' | 'dashboard' | 'admin' | 'reports' | 'support' | 'region';
 
 export interface Employee {
   id: string; // e.g. "NW-1045"

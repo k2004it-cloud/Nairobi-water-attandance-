@@ -23,12 +23,16 @@ create table if not exists public.employees (
   "email" text not null,
   "department" text not null,
   "position" text not null,
+  "region" text not null default 'All Regions',
   "status" text not null default 'Active' check ("status" in ('Active', 'Inactive', 'On Leave')),
   "imageUrl" text,
   "verified" boolean not null default true,
   "created_at" timestamptz not null default now(),
   "updated_at" timestamptz not null default now()
 );
+
+alter table public.employees
+  add column if not exists "region" text not null default 'All Regions';
 
 create table if not exists public.checkins (
   "id" text primary key,

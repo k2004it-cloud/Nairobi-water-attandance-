@@ -150,6 +150,7 @@ export default function App() {
   const [currentUser, setCurrentUserState] = useState<AppUser | null>(() => getCurrentUser());
   const [activeRegion, setActiveRegion] = useState<string>(() => {
     if (typeof window === 'undefined') return DEFAULT_ACTIVE_REGION;
+    if (FIXED_ACTIVE_REGION !== 'All Regions') return FIXED_ACTIVE_REGION;
     return window.localStorage.getItem('nw-active-region') || DEFAULT_ACTIVE_REGION;
   });
 
@@ -234,9 +235,9 @@ export default function App() {
   const showAdminHeader = isAdminPage && isUserAuthenticated;
   const headerStatusLabel = showAdminHeader ? (currentUser ? currentUser.fullName : 'System Admin') : 'Reception Desk';
   const headerStatusSubLabel = showAdminHeader
-    ? `${currentUserRoleLabel}${currentUser && !isGlobalRegionScope(currentUser) ? ` • ${currentUser.region}` : activeRegion !== 'All Regions' ? ` • ${activeRegion}` : ''}`
-    : activeRegion !== 'All Regions'
-      ? `Reception • ${activeRegion}`
+    ? `${currentUserRoleLabel}${currentUser && !isGlobalRegionScope(currentUser) ? ` • ${currentUser.region}` : effectiveRegion !== 'All Regions' ? ` • ${effectiveRegion}` : ''}`
+    : effectiveRegion !== 'All Regions'
+      ? `Reception • ${effectiveRegion}`
       : 'Reception';
 
   const handleShowDetail = (section: 'roster' | 'active' | 'recorded' | 'pending') => {
@@ -325,9 +326,14 @@ export default function App() {
 
       setCurrentUserState(user);
       setCurrentUser(user);
-      setActiveRegion(user.region || 'All Regions');
+      const nextRegion = isRegionFixedDeployment ? FIXED_ACTIVE_REGION : (user.region || 'All Regions');
+      setActiveRegion(nextRegion);
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem('nw-active-region', user.region || 'All Regions');
+        if (isRegionFixedDeployment) {
+          window.localStorage.removeItem('nw-active-region');
+        } else {
+          window.localStorage.setItem('nw-active-region', user.region || 'All Regions');
+        }
       }
       setIsAdminAuthenticated(user.role === 'system_admin');
       if (!user || user.role !== 'system_admin') {
@@ -343,11 +349,13 @@ export default function App() {
     setIsAdminAuthenticated(false);
     setCurrentUserState(null);
     setCurrentUser(null);
-    setActiveRegion(DEFAULT_ACTIVE_REGION);
+    setActiveRegion(isRegionFixedDeployment ? FIXED_ACTIVE_REGION : DEFAULT_ACTIVE_REGION);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('nw-admin-auth');
       window.localStorage.removeItem('nw-current-user');
-      window.localStorage.removeItem('nw-active-region');
+      if (!isRegionFixedDeployment) {
+        window.localStorage.removeItem('nw-active-region');
+      }
     }
     setError(null);
     setAdminPassword('');
@@ -617,7 +625,7 @@ export default function App() {
             <AttendanceTab
               employees={scopedEmployees}
               logs={scopedLogs}
-              activeRegion={activeRegion}
+              activeRegion={effectiveRegion}
               onCheckIn={handleCheckIn}
               onNavigateToTab={setActiveTab}
               onShowDetail={handleShowDetail}

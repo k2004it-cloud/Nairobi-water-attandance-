@@ -37,8 +37,8 @@ export function isGlobalRegionScope(user: AppUser | null) {
 export function matchesRegionScope(user: AppUser | null, region?: string) {
   if (!user) return true;
   if (isGlobalRegionScope(user)) return true;
-  if (region && user.region !== 'All Regions' && region !== user.region) return false;
-  return true;
+  if (!region) return false;
+  return user.region === region;
 }
 
 export const ROLE_DEFINITIONS: Record<SystemRole, { label: string; department: string; permissions: PermissionName[] }> = {
@@ -455,22 +455,22 @@ export function lockUser(username: string) {
   saveUsers(next);
 }
 
-export function getVisibleNavigation(role: SystemRole | null): Array<'attendance' | 'dashboard' | 'admin' | 'reports' | 'support'> {
+export function getVisibleNavigation(role: SystemRole | null): Array<'attendance' | 'dashboard' | 'admin' | 'reports' | 'support' | 'region'> {
   if (!role) return ['attendance'];
 
   switch (role) {
     case 'system_admin':
-      return ['attendance', 'dashboard', 'admin', 'reports', 'support'];
+      return ['attendance', 'dashboard', 'admin', 'reports', 'support', 'region'];
     case 'hr_coordinator':
-      return ['attendance', 'dashboard', 'reports'];
+      return ['attendance', 'dashboard', 'reports', 'region'];
     case 'hr_supervisor':
-      return ['attendance', 'dashboard', 'reports'];
+      return ['attendance', 'dashboard', 'reports', 'region'];
     case 'secretary':
-      return ['attendance', 'reports'];
+      return ['attendance', 'reports', 'region'];
     case 'regional_manager':
-      return ['dashboard', 'reports'];
+      return ['dashboard', 'reports', 'region'];
     case 'it_technician':
-      return ['support'];
+      return ['support', 'region'];
     default:
       return ['attendance'];
   }
