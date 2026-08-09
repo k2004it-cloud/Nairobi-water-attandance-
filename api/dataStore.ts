@@ -19,12 +19,12 @@ let storeInitialized = false;
 
 const IS_LOCAL_DEV = process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'production';
 const SUPABASE_ENABLED = Boolean(process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && supabaseAdmin);
-const ALLOW_LOCAL_FALLBACK = IS_LOCAL_DEV;
+const ALLOW_LOCAL_FALLBACK = IS_LOCAL_DEV || !SUPABASE_ENABLED;
 const SUPABASE_EMPLOYEES_TABLE = 'employees';
 const SUPABASE_CHECKINS_TABLE = 'checkins';
 
 function ensureSupabaseEnabled() {
-  if (!SUPABASE_ENABLED) {
+  if (!SUPABASE_ENABLED && !ALLOW_LOCAL_FALLBACK) {
     throw new Error(
       'Supabase is not configured for this environment. Set VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
     );
@@ -397,6 +397,16 @@ export async function addEmployee(employee: Employee) {
       return { employees: appData.employees, stats: appData.stats };
     } catch (error) {
       console.error('Supabase addEmployee failed:', error);
+      if (ALLOW_LOCAL_FALLBACK) {
+        ensureStore();
+        if (employees.some((existing) => existing.id === employee.id)) {
+          throw new Error('Employee ID already exists');
+        }
+        employees = [employee, ...employees];
+        stats = computeStats();
+        saveStore();
+        return { employees, stats };
+      }
       throw new Error(getErrorMessage(error, 'Unable to add employee'));
     }
   }
