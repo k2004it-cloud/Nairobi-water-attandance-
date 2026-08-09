@@ -23,6 +23,7 @@ const ALLOW_LOCAL_FALLBACK = IS_LOCAL_DEV || !SUPABASE_ENABLED;
 const SUPABASE_EMPLOYEES_TABLE = 'employees';
 const SUPABASE_CHECKINS_TABLE = 'checkins';
 const SUPABASE_REGIONS_TABLE = 'regions';
+const DEPLOYMENT_REGION = process.env.BRANCH_REGION || process.env.VITE_FIXED_REGION || 'All Regions';
 
 // ============================================================================
 // REGION MAPPING FOR BACKWARD COMPATIBILITY
@@ -46,6 +47,11 @@ const REGION_CODE_TO_NAME: Record<string, string> = {
   'WST': 'Western',
   'RFT': 'Rift Valley'
 };
+
+function isDeploymentRegion(region?: string, regionId?: string, deploymentRegionId?: string) {
+  if (DEPLOYMENT_REGION === 'All Regions') return true;
+  return region === DEPLOYMENT_REGION || (Boolean(deploymentRegionId) && regionId === deploymentRegionId);
+}
 
 // In-memory cache of regions to avoid repeated queries
 let regionsCache: Map<string, string> = new Map(); // code -> id (UUID)
@@ -288,11 +294,19 @@ function normalizeSupabaseLog(log: CheckInLog & { created_at?: unknown }): Check
 
 async function loadSupabaseData(): Promise<{ employees: Employee[]; logs: CheckInLog[]; stats: DashboardStats }> {
   const [employeesData, logsData] = await Promise.all([fetchSupabaseEmployees(), fetchSupabaseLogs()]);
+  const deploymentRegionId = await getRegionIdFromName(DEPLOYMENT_REGION);
+  const scopedEmployees = employeesData.filter((employee) =>
+    isDeploymentRegion(employee.region, employee.region_id, deploymentRegionId)
+  );
+  const scopedEmployeeIds = new Set(scopedEmployees.map((employee) => employee.id));
+  const scopedLogs = logsData.filter((log) =>
+    scopedEmployeeIds.has(log.employeeId) || isDeploymentRegion(undefined, log.region_id, deploymentRegionId)
+  );
   const todayKey = getNairobiDateKey(new Date());
   return {
-    employees: employeesData,
-    logs: logsData,
-    stats: computeStatsForData(employeesData, logsData, todayKey)
+    employees: scopedEmployees,
+    logs: scopedLogs,
+    stats: computeStatsForData(scopedEmployees, scopedLogs, todayKey)
   };
 }
 
@@ -343,7 +357,10 @@ export async function getAppData() {
 
   if (ALLOW_LOCAL_FALLBACK) {
     ensureStore();
-    return { employees, logs, stats };
+    const scopedEmployees = employees.filter((employee) => isDeploymentRegion(employee.region, employee.region_id));
+    const scopedEmployeeIds = new Set(scopedEmployees.map((employee) => employee.id));
+    const scopedLogs = logs.filter((log) => scopedEmployeeIds.has(log.employeeId));
+    return { employees: scopedEmployees, logs: scopedLogs, stats: computeStatsForData(scopedEmployees, scopedLogs, getNairobiDateKey(new Date())) };
   }
 
   ensureSupabaseEnabled();
@@ -361,6 +378,11 @@ export async function checkIn(employeeId: string) {
 
       if (employeeError || !employeeData) {
         throw new Error(employeeError?.message || 'Employee not found');
+      }
+
+      const deploymentRegionId = await getRegionIdFromName(DEPLOYMENT_REGION);
+      if (!isDeploymentRegion(employeeData.region, employeeData.region_id, deploymentRegionId)) {
+        throw new Error('Employee not found');
       }
 
       const now = new Date();
