@@ -387,6 +387,22 @@ export async function addEmployee(employee: Employee) {
   if (SUPABASE_ENABLED) {
     try {
       const adminClient = supabaseAdmin!;
+      
+      // Check if employee ID already exists before attempting insert
+      const { data: existing, error: checkError } = await adminClient
+        .from(SUPABASE_EMPLOYEES_TABLE)
+        .select('id')
+        .eq('id', employee.id)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+      
+      if (existing) {
+        throw new Error('Employee ID already exists');
+      }
+      
       const { error } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
         .insert([{ ...employee, region: employee.region ?? '', created_at: new Date().toISOString() }]);
