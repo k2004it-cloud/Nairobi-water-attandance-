@@ -23,7 +23,8 @@ export interface AppUser {
   username: string;
   role: SystemRole;
   department: string;
-  region: string;
+  region: string; // Legacy: region text name for backward compatibility
+  region_id?: string; // New: UUID for secure RLS-based isolation
   permissions: PermissionName[];
   status: 'active' | 'locked';
 }

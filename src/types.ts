@@ -3,6 +3,19 @@ export type CheckInStatus = 'ON TIME' | 'GRACE PERIOD' | 'LATE';
 export type AttendanceWindowStatus = CheckInStatus | 'CLOSED';
 export type Tab = 'attendance' | 'dashboard' | 'admin' | 'reports' | 'support' | 'region';
 
+/**
+ * Region represents a geographic or organizational region.
+ * Uses UUID for secure isolation via Row Level Security.
+ */
+export interface Region {
+  id: string; // UUID
+  name: string;
+  code: string; // e.g. 'NRB', 'CEN', 'CST', 'WST', 'RFT', 'ALL'
+  status: 'active' | 'inactive';
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Employee {
   id: string; // e.g. "NW-1045"
   name: string;
@@ -12,7 +25,8 @@ export interface Employee {
   status: EmployeeStatus;
   imageUrl: string;
   verified: boolean;
-  region?: string;
+  region?: string; // Legacy: region text name for backward compatibility
+  region_id?: string; // New: UUID reference for RLS enforcement
 }
 
 export interface CheckInLog {
@@ -28,6 +42,7 @@ export interface CheckInLog {
   imageUrl?: string;
   remarks?: string;
   dateKey?: string; // YYYY-MM-DD in Nairobi time
+  region_id?: string; // New: UUID reference for RLS enforcement
 }
 
 export interface DashboardStats {

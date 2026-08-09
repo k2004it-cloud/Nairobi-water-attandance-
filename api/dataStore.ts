@@ -22,6 +22,34 @@ const SUPABASE_ENABLED = Boolean(process.env.VITE_SUPABASE_URL && process.env.SU
 const ALLOW_LOCAL_FALLBACK = IS_LOCAL_DEV || !SUPABASE_ENABLED;
 const SUPABASE_EMPLOYEES_TABLE = 'employees';
 const SUPABASE_CHECKINS_TABLE = 'checkins';
+const SUPABASE_REGIONS_TABLE = 'regions';
+
+// ============================================================================
+// REGION MAPPING FOR BACKWARD COMPATIBILITY
+// Maps region names (text) to their standard codes for UUID lookup
+// These codes match the values inserted in the Supabase migration script
+// ============================================================================
+const REGION_NAME_TO_CODE: Record<string, string> = {
+  'All Regions': 'ALL',
+  'Nairobi': 'NRB',
+  'Central': 'CEN',
+  'Coast': 'CST',
+  'Western': 'WST',
+  'Rift Valley': 'RFT'
+};
+
+const REGION_CODE_TO_NAME: Record<string, string> = {
+  'ALL': 'All Regions',
+  'NRB': 'Nairobi',
+  'CEN': 'Central',
+  'CST': 'Coast',
+  'WST': 'Western',
+  'RFT': 'Rift Valley'
+};
+
+// In-memory cache of regions to avoid repeated queries
+let regionsCache: Map<string, string> = new Map(); // code -> id (UUID)
+let regionsCacheExpiry = 0;
 
 function ensureSupabaseEnabled() {
   if (!SUPABASE_ENABLED && !ALLOW_LOCAL_FALLBACK) {
@@ -30,6 +58,84 @@ function ensureSupabaseEnabled() {
     );
   }
 }
+
+/**
+ * Fetch and cache regions from Supabase.
+ * The cache is valid for 5 minutes to avoid excessive database queries.
+ */
+async function getRegionsCache(): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (regionsCache.size > 0 && now < regionsCacheExpiry) {
+    return regionsCache;
+  }
+
+  if (!SUPABASE_ENABLED) {
+    // For local development, return mock region UUIDs
+    regionsCache = new Map(Object.entries(REGION_NAME_TO_CODE).map(([name, code]) => [code, `mock-${code}`]));
+    regionsCacheExpiry = now + 5 * 60 * 1000;
+    return regionsCache;
+  }
+
+  try {
+    const adminClient = supabaseAdmin!;
+    const { data: regions, error } = await adminClient
+      .from(SUPABASE_REGIONS_TABLE)
+      .select('id, code');
+
+    if (error) {
+      console.warn('Failed to fetch regions from Supabase:', error);
+      regionsCache = new Map();
+      return regionsCache;
+    }
+
+    const codeToId = new Map<string, string>();
+    for (const region of (regions ?? [])) {
+      if (region.id && region.code) {
+        codeToId.set(region.code, region.id);
+      }
+    }
+
+    regionsCache = codeToId;
+    regionsCacheExpiry = now + 5 * 60 * 1000;
+    return regionsCache;
+  } catch (error) {
+    console.error('Error fetching regions:', error);
+    regionsCache = new Map();
+    return regionsCache;
+  }
+}
+
+/**
+ * Get the region UUID from a region name (text).
+ * Handles backward compatibility between text names and UUID IDs.
+ */
+async function getRegionIdFromName(regionName?: string): Promise<string | undefined> {
+  if (!regionName) return undefined;
+
+  const code = REGION_NAME_TO_CODE[regionName];
+  if (!code) {
+    console.warn(`Unknown region name: ${regionName}`);
+    return undefined;
+  }
+
+  const cache = await getRegionsCache();
+  return cache.get(code);
+}
+
+/**
+ * Get the region name (text) from a region UUID.
+ * Used for backward compatibility when displaying regions.
+ */
+function getRegionNameFromId(regionId: string): string | undefined {
+  // Try to find by matching against cache
+  for (const [code, id] of regionsCache) {
+    if (id === regionId) {
+      return REGION_CODE_TO_NAME[code];
+    }
+  }
+  return undefined;
+}
+
 
 let employees: Employee[] = [];
 let logs: CheckInLog[] = [];
@@ -94,7 +200,8 @@ function normalizeEmployeeRow(row: Record<string, unknown> | null | undefined): 
       : 'Active',
     imageUrl: String(row.imageUrl ?? row.image_url ?? ''),
     verified: Boolean(row.verified ?? row.is_verified ?? true),
-    region: typeof row.region === 'string' ? row.region : String(row.region ?? '')
+    region: typeof row.region === 'string' ? row.region : String(row.region ?? ''),
+    region_id: typeof row.region_id === 'string' ? row.region_id : undefined
   };
 }
 
@@ -116,7 +223,8 @@ function normalizeCheckInRow(row: Record<string, unknown> | null | undefined): C
     avatarBg: String(row.avatarBg ?? row.avatar_bg ?? 'bg-[#0056b3]'),
     imageUrl: typeof row.imageUrl === 'string' ? row.imageUrl : typeof row.image_url === 'string' ? row.image_url : undefined,
     remarks: typeof row.remarks === 'string' ? row.remarks : undefined,
-    created_at: typeof createdAtValue === 'string' ? createdAtValue : undefined
+    created_at: typeof createdAtValue === 'string' ? createdAtValue : undefined,
+    region_id: typeof row.region_id === 'string' ? row.region_id : undefined
   };
 
   return {
@@ -303,12 +411,17 @@ export async function checkIn(employeeId: string) {
         avatarBg: ['bg-[#0056b3]', 'bg-[#335f9d]', 'bg-indigo-600', 'bg-emerald-600', 'bg-teal-600', 'bg-amber-600'][
           Math.floor(Math.random() * 6)
         ],
-        imageUrl: employeeData.imageUrl || undefined
+        imageUrl: employeeData.imageUrl || undefined,
+        region_id: employeeData.region_id
       };
 
       const { error: insertError } = await adminClient
         .from(SUPABASE_CHECKINS_TABLE)
-        .insert([{ ...newLog, created_at: new Date().toISOString() }]);
+        .insert([{ 
+          ...newLog, 
+          created_at: new Date().toISOString(),
+          region_id: employeeData.region_id
+        }]);
 
       if (insertError) {
         throw insertError;
@@ -403,9 +516,26 @@ export async function addEmployee(employee: Employee) {
         throw new Error('Employee ID already exists');
       }
       
+      // Resolve region name to UUID if not already set
+      let regionId = employee.region_id;
+      if (!regionId && employee.region) {
+        regionId = await getRegionIdFromName(employee.region);
+        if (!regionId) {
+          console.warn(`Could not resolve region: ${employee.region}, defaulting to All Regions`);
+          regionId = await getRegionIdFromName('All Regions');
+        }
+      }
+      
+      // Insert employee with both region (text) and region_id (UUID)
+      // RLS will enforce that the inserted region_id matches the user's region
       const { error } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
-        .insert([{ ...employee, region: employee.region ?? '', created_at: new Date().toISOString() }]);
+        .insert([{
+          ...employee,
+          region: employee.region ?? '',
+          region_id: regionId,
+          created_at: new Date().toISOString()
+        }]);
       if (error) {
         throw error;
       }
@@ -448,6 +578,24 @@ export async function editEmployee(employee: Employee) {
   if (SUPABASE_ENABLED) {
     try {
       const adminClient = supabaseAdmin!;
+      
+      // Fetch the current employee to preserve region_id
+      const { data: currentEmployee, error: fetchError } = await adminClient
+        .from(SUPABASE_EMPLOYEES_TABLE)
+        .select('region_id')
+        .eq('id', employee.id)
+        .single();
+      
+      if (fetchError) {
+        throw fetchError;
+      }
+      
+      if (!currentEmployee) {
+        throw new Error('Employee not found');
+      }
+      
+      // Update the employee, preserving region_id
+      // RLS policies will prevent unauthorized updates across regions
       const { error } = await adminClient
         .from(SUPABASE_EMPLOYEES_TABLE)
         .update({
@@ -458,7 +606,8 @@ export async function editEmployee(employee: Employee) {
           region: employee.region ?? '',
           status: employee.status,
           imageUrl: employee.imageUrl,
-          verified: employee.verified
+          verified: employee.verified,
+          region_id: currentEmployee.region_id // Preserve existing region_id
         })
         .eq('id', employee.id);
 
