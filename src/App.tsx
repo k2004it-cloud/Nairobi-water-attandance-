@@ -194,17 +194,34 @@ export default function App() {
     }
   }, [isRegionFixedDeployment, activeTab, isAdminPage]);
 
-  const scopedEmployees = currentUser && !isGlobalRegionScope(currentUser) && !isRegionFixedDeployment
-    ? employees.filter((employee) => matchesRegionScope(currentUser, employee.region))
-    : employees.filter((employee) => effectiveRegion === 'All Regions' || employee.region === effectiveRegion);
+  const scopedEmployees = isRegionFixedDeployment
+    ? employees
+    : currentUser && !isGlobalRegionScope(currentUser)
+      ? employees.filter((employee) =>
+          matchesRegionScope(currentUser, employee.region) ||
+          Boolean(currentUser.region_id && employee.region_id && currentUser.region_id === employee.region_id)
+        )
+      : employees.filter((employee) => effectiveRegion === 'All Regions' || employee.region === effectiveRegion);
 
-  const scopedLogs = currentUser && !isGlobalRegionScope(currentUser) && !isRegionFixedDeployment
-    ? todayLogs.filter((log) => matchesRegionScope(currentUser, (log as CheckInLog & { region?: string }).region))
-    : todayLogs.filter((log) => effectiveRegion === 'All Regions' || (log as CheckInLog & { region?: string }).region === effectiveRegion);
+  const scopedLogs = isRegionFixedDeployment
+    ? todayLogs
+    : currentUser && !isGlobalRegionScope(currentUser)
+      ? todayLogs.filter((log) => {
+          const regionLog = log as CheckInLog & { region?: string };
+          return matchesRegionScope(currentUser, regionLog.region) ||
+            Boolean(currentUser.region_id && log.region_id && currentUser.region_id === log.region_id);
+        })
+      : todayLogs.filter((log) => effectiveRegion === 'All Regions' || (log as CheckInLog & { region?: string }).region === effectiveRegion);
 
-  const reportLogs = currentUser && !isGlobalRegionScope(currentUser) && !isRegionFixedDeployment
-    ? logs.filter((log) => matchesRegionScope(currentUser, (log as CheckInLog & { region?: string }).region))
-    : logs.filter((log) => effectiveRegion === 'All Regions' || (log as CheckInLog & { region?: string }).region === effectiveRegion);
+  const reportLogs = isRegionFixedDeployment
+    ? logs
+    : currentUser && !isGlobalRegionScope(currentUser)
+      ? logs.filter((log) => {
+          const regionLog = log as CheckInLog & { region?: string };
+          return matchesRegionScope(currentUser, regionLog.region) ||
+            Boolean(currentUser.region_id && log.region_id && currentUser.region_id === log.region_id);
+        })
+      : logs.filter((log) => effectiveRegion === 'All Regions' || (log as CheckInLog & { region?: string }).region === effectiveRegion);
 
   const scopedStats = currentUser && !isGlobalRegionScope(currentUser)
     ? {
