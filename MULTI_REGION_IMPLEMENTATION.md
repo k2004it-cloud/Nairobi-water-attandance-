@@ -236,6 +236,26 @@ SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
 - Monitor error logs for any RLS-related errors
 - Test with a regional user account
 
+## CI / Deployment Notes
+
+- This repository includes a GitHub Actions workflow at `.github/workflows/deploy.yml` that will:
+   - Run Supabase SQL migrations (`supabase/admin-auth.sql`, `supabase/multi-region-rls.sql`, `supabase/central-admin-users.sql`) using `psql` and the `SUPABASE_DB_URL` secret.
+   - Trigger a Vercel production deploy using `vercel` CLI and `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets.
+
+- Required GitHub Secrets:
+   - `SUPABASE_DB_URL` — a full Postgres connection string with sufficient privileges to run DDL and create RLS policies (example: `postgresql://user:pass@db.host:5432/postgres`).
+   - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` — for triggering production deploys.
+
+- Recommended Vercel Environment Variables (set in Project Settings):
+   - `VITE_SUPABASE_URL` — your Supabase project URL
+   - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (server only)
+   - `ADMIN_BOOTSTRAP_PASSWORD` — bootstrap password used by `BOOTSTRAP_REQUIRED` seeded accounts
+   - `ADMIN_EMAIL` — admin notification email
+
+Notes:
+- If you prefer to run migrations using Supabase CLI, replace the `psql` steps with `supabase db push` or `supabase sql` and provide the `SUPABASE_ACCESS_TOKEN` secret instead.
+- The workflow assumes the SQL migrations are idempotent and safe to re-run on each push to `main`.
+
 ## Security Testing Checklist
 
 ## Super Admin: bootstrap, login, and create regional admins
