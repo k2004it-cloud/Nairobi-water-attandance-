@@ -238,6 +238,45 @@ SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
 
 ## Security Testing Checklist
 
+## Super Admin: bootstrap, login, and create regional admins
+
+- **Bootstrap password**: Set `ADMIN_BOOTSTRAP_PASSWORD` (or `ADMIN_PASSWORD`) in your environment or Vercel Project Settings. This value is used to complete initial password setup for seeded accounts marked `BOOTSTRAP_REQUIRED`.
+- **Seeded accounts**:
+   - Central system admin user: username `NWC01` (role `system_admin`).
+   - Legacy primary admin for branch-local API: `admin_credentials.id = 'primary'` (used by `/api/admin`).
+
+- **Login as System Admin (username/password)**:
+
+   Example (curl):
+
+   ```bash
+   curl -s -X POST "$API_BASE/api/users" \
+      -H "Content-Type: application/json" \
+      -d '{"action":"login","username":"NWC01","password":"YOUR_BOOTSTRAP_PASSWORD"}'
+   ```
+
+   Response contains `user` and `session`. Save the `session` value and use it in the `Authorization` header for subsequent admin API calls:
+
+   ```bash
+   -H "Authorization: Bearer <session>"
+   ```
+
+- **Create a regional admin (as System Admin)**:
+
+   Example (create a regional manager for Nairobi):
+
+   ```bash
+   curl -s -X POST "$API_BASE/api/users" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer <session>" \
+      -d '{"action":"create","username":"NRB01","fullName":"Nairobi Manager","department":"Administration","role":"regional_manager","region":"Nairobi","password":"Str0ngPass!"}'
+   ```
+
+   - If successful, the API returns the created `user` with `region_id` and permissions.
+   - System Admin (`system_admin`) can create users for any region. Regional managers can only create/manage users within their own region and cannot create other `regional_manager` or `system_admin` accounts.
+
+**Legacy single-admin login**: For branch-local installations that still use the single-admin API, you can login via `/api/admin` with the bootstrap password (environment variable `ADMIN_BOOTSTRAP_PASSWORD`). This endpoint controls the legacy `admin_credentials` singleton (`id = 'primary'`).
+
 ### Test 1: Regional User Cannot See Other Regions
 ```
 Given: Logged in as Region A admin (region_id = NRB)

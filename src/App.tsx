@@ -312,6 +312,7 @@ export default function App() {
         const res = await adminLogin(adminPassword);
         if (res && (res as any).success) {
           setIsAdminAuthenticated(true);
+          if (typeof window !== 'undefined') window.localStorage.setItem('nw-admin-auth', 'true');
           setError(null);
           setAdminError(null);
         } else {
@@ -365,9 +366,14 @@ export default function App() {
           window.localStorage.setItem('nw-active-region', user.region || 'All Regions');
         }
       }
-      setIsAdminAuthenticated(user.role === 'system_admin');
-      if (!user || user.role !== 'system_admin') {
-        window.localStorage.removeItem('nw-admin-auth');
+      const isSysAdmin = user.role === 'system_admin';
+      setIsAdminAuthenticated(isSysAdmin);
+      if (typeof window !== 'undefined') {
+        if (isSysAdmin) {
+          window.localStorage.setItem('nw-admin-auth', 'true');
+        } else {
+          window.localStorage.removeItem('nw-admin-auth');
+        }
       }
       setPagePath('admin');
       setActiveTab(user.role === 'it_technician' ? 'support' : user.role === 'secretary' ? 'attendance' : 'dashboard');

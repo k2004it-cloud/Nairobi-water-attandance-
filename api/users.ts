@@ -29,6 +29,30 @@ function assertConfigured() {
   if (!supabaseAdmin) throw new Error('Central user storage is not configured. Set Supabase environment variables.');
 }
 
+async function ensureSystemAdminSeeded() {
+  // Best-effort seeding: create legacy `primary` admin and central system admin user if missing.
+  try {
+    const regionRes = await supabaseAdmin!.from('regions').select('id').eq('code', 'ALL').single();
+    const regionId = regionRes?.data?.id;
+    if (regionId) {
+      // ensure admin_credentials.primary exists
+      const { data: cred } = await supabaseAdmin!.from('admin_credentials').select('id').eq('id', 'primary').maybeSingle();
+      if (!cred) {
+        await supabaseAdmin!.from('admin_credentials').insert({ id: 'primary', email: process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'admin@nairobi.local', password_hash: 'BOOTSTRAP_REQUIRED', region_id: regionId });
+      }
+
+      // ensure central system user exists
+      const { data: user } = await supabaseAdmin!.from(USERS_TABLE).select('id').eq('username', 'NWC01').maybeSingle();
+      if (!user) {
+        await supabaseAdmin!.from(USERS_TABLE).insert({ username: 'NWC01', full_name: 'System Administrator', department: 'Administration', role: 'system_admin', region_id: regionId, password_hash: 'BOOTSTRAP_REQUIRED', status: 'active' });
+      }
+    }
+  } catch (err) {
+    // swallow errors — seeding is optional and environment-dependent
+    console.warn('ensureSystemAdminSeeded failed (non-fatal):', err?.message || err);
+  }
+}
+
 async function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex');
   const key = (await scrypt(password, salt, 64)) as Buffer;
@@ -111,6 +135,7 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     assertConfigured();
+    await ensureSystemAdminSeeded();
     const { action } = req.body || {};
 
     if (action === 'login') {

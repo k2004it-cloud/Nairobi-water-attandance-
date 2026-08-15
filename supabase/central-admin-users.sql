@@ -35,3 +35,14 @@ select
 from public.regions
 where regions.code = 'ALL'
 and not exists (select 1 from public.admin_users where username = 'NWC01');
+
+-- Ensure legacy single admin record exists for the primary admin used by the branch-local API
+insert into public.admin_credentials (id, email, password_hash, region_id)
+select
+  'primary',
+  coalesce(current_setting('admin.email', true), 'admin@nairobi.local'),
+  'BOOTSTRAP_REQUIRED',
+  regions.id
+from public.regions as regions
+where regions.code = 'ALL'
+and not exists (select 1 from public.admin_credentials where id = 'primary');
