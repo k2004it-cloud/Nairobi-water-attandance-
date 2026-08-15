@@ -239,12 +239,13 @@ SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
 ## CI / Deployment Notes
 
 - This repository includes a GitHub Actions workflow at `.github/workflows/deploy.yml` that will:
-   - Run Supabase SQL migrations (`supabase/admin-auth.sql`, `supabase/multi-region-rls.sql`, `supabase/central-admin-users.sql`) using `psql` and the `SUPABASE_DB_URL` secret.
-   - Trigger a Vercel production deploy using `vercel` CLI and `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets.
+   - Run Supabase migrations using the Supabase CLI (`supabase db push`) against your Supabase project (requires `SUPABASE_ACCESS_TOKEN` and `SUPABASE_PROJECT_REF`).
+   - Trigger a Vercel staging deploy, then a production deploy using the `vercel` CLI and `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets.
 
 - Required GitHub Secrets:
-   - `SUPABASE_DB_URL` — a full Postgres connection string with sufficient privileges to run DDL and create RLS policies (example: `postgresql://user:pass@db.host:5432/postgres`).
-   - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` — for triggering production deploys.
+   - `SUPABASE_ACCESS_TOKEN` — Supabase CLI access token used to run `supabase db push` in CI.
+   - `SUPABASE_PROJECT_REF` — Supabase project ref (project short id) used by the CLI.
+   - `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` — for triggering Vercel deploys.
 
 - Recommended Vercel Environment Variables (set in Project Settings):
    - `VITE_SUPABASE_URL` — your Supabase project URL
@@ -253,7 +254,7 @@ SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';
    - `ADMIN_EMAIL` — admin notification email
 
 Notes:
-- If you prefer to run migrations using Supabase CLI, replace the `psql` steps with `supabase db push` or `supabase sql` and provide the `SUPABASE_ACCESS_TOKEN` secret instead.
+- The workflow is configured to use the Supabase CLI by default. If you prefer running migrations manually, you can still run the SQL files in the Supabase SQL Editor.
 - The workflow assumes the SQL migrations are idempotent and safe to re-run on each push to `main`.
 
 ## Security Testing Checklist
